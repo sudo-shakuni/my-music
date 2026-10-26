@@ -320,6 +320,28 @@
             <span>Overwrite already downloaded files</span>
           </label>
         </div>
+        <!-- Spotify Developer API Credentials (Optional - Bypasses Rate Limits) -->
+        <div class="settings-credentials-section" style="margin-top: 18px; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.08);">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <label style="font-weight: 600; font-size: 0.92rem; color: #fff; display: flex; align-items: center; gap: 6px;">
+              <i data-lucide="key" style="width: 16px; height: 16px; color: #1db954;"></i> Custom Spotify Developer Credentials
+            </label>
+            <span style="font-size: 0.75rem; color: #1db954; background: rgba(29, 185, 84, 0.12); padding: 2px 8px; border-radius: 12px; font-weight: 600;">Optional</span>
+          </div>
+          <p style="font-size: 0.8rem; color: #94a3b8; margin: 0 0 10px; line-height: 1.4;">
+            <strong>No login required for public playlists:</strong> Simply paste any playlist link into the search bar above. If you want your own isolated API quota for loading your personal private library without public rate limits, provide your Spotify Developer credentials below:
+          </p>
+          <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: center;">
+            <input type="text" id="setting-spotify-client-id" placeholder="Spotify Client ID" autocomplete="off" style="font-size: 0.85rem;" />
+            <input type="password" id="setting-spotify-client-secret" placeholder="Spotify Client Secret" autocomplete="off" style="font-size: 0.85rem;" />
+            <button type="button" id="btn-save-spotify-creds" class="btn btn-secondary btn-sm" style="white-space: nowrap;">
+              <i data-lucide="check"></i> Save Keys
+            </button>
+          </div>
+          <small style="display: block; margin-top: 6px; color: #64748b; font-size: 0.76rem;">
+            Get free keys from <a href="https://developer.spotify.com/dashboard" target="_blank" style="color: #1db954; text-decoration: underline;">developer.spotify.com/dashboard</a>. Redirect URI: <code>http://127.0.0.1:9900/</code>
+          </small>
+        </div>
       </section>
 
       <!-- Skeleton Shimmer Loading Placeholder -->

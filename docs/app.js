@@ -102,6 +102,9 @@ const elements = {
   btnCustomClientLogin: document.getElementById("btn-custom-client-login"),
   inputCustomClientId: document.getElementById("input-custom-client-id"),
   inputCustomClientSecret: document.getElementById("input-custom-client-secret"),
+  settingSpotifyClientId: document.getElementById("setting-spotify-client-id"),
+  settingSpotifyClientSecret: document.getElementById("setting-spotify-client-secret"),
+  btnSaveSpotifyCreds: document.getElementById("btn-save-spotify-creds"),
 
   fetchForm: document.getElementById("fetch-form"),
   playlistUrlInput: document.getElementById("playlist-url"),
@@ -259,6 +262,31 @@ document.addEventListener("DOMContentLoaded", () => {
   setupEventListeners();
   setupAudioPlayer();
   setupQualityPills();
+
+  // Load saved Spotify Developer Credentials
+  const savedSpotifyCid = localStorage.getItem("my_music_spotify_client_id") || "";
+  const savedSpotifyCsec = localStorage.getItem("my_music_spotify_client_secret") || "";
+  if (elements.settingSpotifyClientId) elements.settingSpotifyClientId.value = savedSpotifyCid;
+  if (elements.settingSpotifyClientSecret) elements.settingSpotifyClientSecret.value = savedSpotifyCsec;
+  if (elements.inputCustomClientId && savedSpotifyCid) elements.inputCustomClientId.value = savedSpotifyCid;
+  if (elements.inputCustomClientSecret && savedSpotifyCsec) elements.inputCustomClientSecret.value = savedSpotifyCsec;
+
+  if (elements.btnSaveSpotifyCreds) {
+    elements.btnSaveSpotifyCreds.addEventListener("click", () => {
+      const cid = elements.settingSpotifyClientId ? elements.settingSpotifyClientId.value.trim() : "";
+      const csec = elements.settingSpotifyClientSecret ? elements.settingSpotifyClientSecret.value.trim() : "";
+      localStorage.setItem("my_music_spotify_client_id", cid);
+      localStorage.setItem("my_music_spotify_client_secret", csec);
+      if (elements.inputCustomClientId) elements.inputCustomClientId.value = cid;
+      if (elements.inputCustomClientSecret) elements.inputCustomClientSecret.value = csec;
+      if (cid) {
+        showToast("Spotify Developer Credentials saved! Isolated rate-limit quota active.", "success");
+      } else {
+        showToast("Cleared Spotify Developer Credentials.", "info");
+      }
+    });
+  }
+
   setupFilterChips();
   setupIntersectionObserver();
   setupKeyboardShortcuts();
@@ -947,7 +975,11 @@ async function fetchPlaylistData(url) {
     const res = await fetch("/api/playlist/info", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url: url }),
+      body: JSON.stringify({
+        url: url,
+        client_id: localStorage.getItem("my_music_spotify_client_id") || undefined,
+        client_secret: localStorage.getItem("my_music_spotify_client_secret") || undefined,
+      }),
     });
 
     if (!res.ok) {
@@ -2201,9 +2233,14 @@ async function loadUserPlaylists(forceRefresh = false) {
             Spotify's shared public app reached its daily quota limit for automatic playlist listing.<br>
             <strong>You can still download any playlist right now:</strong> Simply copy the link to any playlist from Spotify and paste it into the search box at the top!
           </p>
-          <button class="btn btn-primary" style="padding: 8px 20px;" onclick="switchNavTab('search'); if(elements.playlistUrlInput) elements.playlistUrlInput.focus();">
-            <i data-lucide="search"></i> Paste Playlist URL to Download
-          </button>
+          <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+            <button class="btn btn-primary" style="padding: 8px 20px;" onclick="switchNavTab('search'); if(elements.playlistUrlInput) elements.playlistUrlInput.focus();">
+              <i data-lucide="search"></i> Paste Playlist URL (No Login Needed)
+            </button>
+            <button class="btn btn-secondary" style="padding: 8px 20px;" onclick="openSpotifyAuthModal();">
+              <i data-lucide="key"></i> Connect Custom Developer App
+            </button>
+          </div>
         </div>
       `;
       if (window.lucide) window.lucide.createIcons();
