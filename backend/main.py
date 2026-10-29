@@ -207,7 +207,7 @@ def get_download_status():
 async def stream_download_events(request: Request):
     """Server-Sent Events (SSE) endpoint for live track download and tagging progress."""
     queue = asyncio.Queue()
-    download_manager.subscribers.append(queue)
+    download_manager.add_subscriber(queue)
 
     async def event_generator():
         try:
@@ -225,8 +225,7 @@ async def stream_download_events(request: Request):
                     # Keep-alive heartbeat
                     yield ": ping\n\n"
         finally:
-            if queue in download_manager.subscribers:
-                download_manager.subscribers.remove(queue)
+            download_manager.remove_subscriber(queue)
 
     return StreamingResponse(
         event_generator(),

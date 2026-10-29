@@ -794,6 +794,12 @@ body {
   border: 1px solid rgba(49, 130, 206, 0.4);
 }
 
+.badge-status.converting {
+  background-color: rgba(237, 137, 54, 0.2);
+  color: #f6ad55;
+  border: 1px solid rgba(237, 137, 54, 0.4);
+}
+
 .badge-status.tagging {
   background-color: rgba(128, 90, 213, 0.2);
   color: #b794f4;

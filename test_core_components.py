@@ -104,6 +104,25 @@ def test_fastapi_endpoints():
     print("\n--- [4/4] Testing FastAPI Endpoints (HTTP 200) ---")
     base_url = "http://127.0.0.1:8800"
 
+    # Start in-process uvicorn server if port 8800 is not already responding
+    server = None
+    try:
+        requests.get(f"{base_url}/api/system/info", timeout=1)
+    except Exception:
+        import uvicorn, threading
+        from backend.main import app
+        config = uvicorn.Config(app, host="127.0.0.1", port=8800, log_level="error")
+        server = uvicorn.Server(config)
+        t = threading.Thread(target=server.run, daemon=True)
+        t.start()
+        for _ in range(20):
+            time.sleep(0.1)
+            try:
+                if requests.get(f"{base_url}/api/system/info", timeout=1).status_code == 200:
+                    break
+            except Exception:
+                pass
+
     endpoints = [
         ("/", "Frontend Web Dashboard"),
         ("/api/system/info", "System Status & Environment Info"),
@@ -114,12 +133,16 @@ def test_fastapi_endpoints():
     ]
 
     passed = 0
-    for path, desc in endpoints:
-        url = f"{base_url}{path}"
-        resp = requests.get(url, timeout=5)
-        assert resp.status_code == 200, f"Endpoint {path} failed with HTTP {resp.status_code}"
-        print(f"  [PASS] HTTP 200 OK -> {path:<26} ({desc})")
-        passed += 1
+    try:
+        for path, desc in endpoints:
+            url = f"{base_url}{path}"
+            resp = requests.get(url, timeout=5)
+            assert resp.status_code == 200, f"Endpoint {path} failed with HTTP {resp.status_code}"
+            print(f"  [PASS] HTTP 200 OK -> {path:<26} ({desc})")
+            passed += 1
+    finally:
+        if server:
+            server.should_exit = True
 
     print(f"Result: {passed}/{len(endpoints)} endpoint tests passed with HTTP 200.")
 

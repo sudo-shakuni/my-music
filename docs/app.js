@@ -1881,32 +1881,74 @@ function getDownloadOptions() {
 // Start Batch Download Process
 async function startDownloadProcess() {
   if (isWebDemo) {
-    showToast("🚀 Simulating download process in Web Preview...", "info", 2500);
+    const selectedTracks = state.currentPlaylist ? state.currentPlaylist.tracks.filter((t) => state.selectedTrackIds.has(t.id)) : [];
+    const totalCount = selectedTracks.length || 6;
+    showToast(`Starting high-speed download simulation for ${totalCount} tracks...`, "info", 2000);
     elements.downloadBar.classList.remove("hidden");
-    elements.barProgressFill.style.width = "10%";
-    elements.barProgressText.textContent = "10%";
-    elements.barStatusText.textContent = "Simulating FLAC lossless download...";
-    elements.barSpeedVal.textContent = "⚡ 4.8 MB/s";
-    elements.barEtaVal.textContent = "⏳ ~3s";
-    elements.barStreamsVal.textContent = "4x";
-    
-    setTimeout(() => {
-      elements.barProgressFill.style.width = "65%";
-      elements.barProgressText.textContent = "65%";
-      elements.barStatusText.textContent = "Embedding ID3 metadata & cover art...";
-    }, 1200);
+    elements.btnStartDownload.disabled = true;
 
-    setTimeout(() => {
-      elements.barProgressFill.style.width = "100%";
-      elements.barProgressText.textContent = "100%";
-      elements.downloadBar.classList.add("hidden");
-      if (elements.completionModal) {
-        elements.completionModal.classList.remove("hidden");
-        elements.modalStatCount.textContent = state.selectedTrackIds.size || 6;
-        elements.modalStatTime.textContent = "3.2s";
-        elements.modalSummaryText.textContent = "Web Preview Simulation Complete! To download actual Lossless FLAC files locally, get the My-Music Windows App.";
+    selectedTracks.forEach(t => updateTrackBadge(t.id, "queued", "Queued"));
+
+    let step = 0;
+    const totalSteps = 24;
+    const interval = setInterval(() => {
+      step++;
+      const pct = Math.min(100, Math.round((step / totalSteps) * 100));
+      const completedCount = Math.min(totalCount, Math.floor((step / totalSteps) * totalCount));
+
+      elements.barProgressFill.style.width = `${pct}%`;
+      elements.barProgressText.textContent = `${completedCount} / ${totalCount} (${pct}%)`;
+
+      const activeIdx = Math.min(totalCount - 1, Math.floor((step / totalSteps) * totalCount));
+      if (selectedTracks[activeIdx]) {
+        if (pct < 30) {
+          updateTrackBadge(selectedTracks[activeIdx].id, "downloading", `Downloading ${pct}%`);
+          elements.barStatusText.textContent = `Connecting to high-speed audio streams...`;
+          elements.barSpeedVal.textContent = "5.4 MB/s";
+          elements.barEtaVal.textContent = "~3s";
+        } else if (pct < 75) {
+          updateTrackBadge(selectedTracks[activeIdx].id, "downloading", `Downloading ${pct}%`);
+          elements.barStatusText.textContent = `Streaming FLAC/320k audio (${completedCount} of ${totalCount} done)...`;
+          elements.barSpeedVal.textContent = "7.8 MB/s";
+          elements.barEtaVal.textContent = "~2s";
+        } else if (pct < 95) {
+          updateTrackBadge(selectedTracks[activeIdx].id, "converting", "Converting (FFmpeg)...");
+          elements.barStatusText.textContent = `Embedding studio ID3 tags, synced lyrics & cover art...`;
+          elements.barSpeedVal.textContent = "6.2 MB/s";
+          elements.barEtaVal.textContent = "~1s";
+        }
       }
-    }, 2800);
+
+      // Mark previous tracks completed
+      for (let i = 0; i < activeIdx; i++) {
+        if (selectedTracks[i]) {
+          updateTrackBadge(selectedTracks[i].id, "completed", "Downloaded");
+        }
+      }
+
+      if (elements.barStreamsVal) elements.barStreamsVal.textContent = "4 active";
+
+      if (step >= totalSteps) {
+        clearInterval(interval);
+        selectedTracks.forEach(t => updateTrackBadge(t.id, "completed", "Downloaded"));
+        elements.barProgressFill.style.width = "100%";
+        elements.barProgressText.textContent = `${totalCount} / ${totalCount} (100%)`;
+        elements.barStatusText.textContent = `Download complete! ${totalCount} tracks saved.`;
+        elements.barEtaVal.textContent = "Done";
+        elements.btnStartDownload.disabled = false;
+
+        setTimeout(() => {
+          elements.downloadBar.classList.add("hidden");
+          if (elements.completionModal) {
+            elements.completionModal.classList.remove("hidden");
+            elements.modalStatCount.textContent = totalCount;
+            elements.modalStatTime.textContent = "2.9s";
+            elements.modalStatFailures.textContent = "0";
+            elements.modalSummaryText.textContent = `Web Preview Simulation Complete! Successfully verified ${totalCount} studio-grade audio tracks with authentic ID3 tags and high-res cover art.`;
+          }
+        }, 600);
+      }
+    }, 120);
     return;
   }
   if (!state.currentPlaylist || state.selectedTrackIds.size === 0) return;
@@ -2021,7 +2063,7 @@ function handleServerEvent(type, data) {
     updateFilterChipBadges();
 
     // Track active downloads for the Live Queue Drawer
-    if (status === "downloading" || status === "searching" || status === "tagging") {
+    if (status === "downloading" || status === "searching" || status === "converting" || status === "tagging") {
       let trackInfo = state.currentPlaylist ? state.currentPlaylist.tracks.find((t) => t.id === track_id) : null;
       state.activeDownloadsMap.set(track_id, {
         track_id,

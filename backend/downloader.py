@@ -5,12 +5,13 @@ converts via FFmpeg, and embeds accurate Spotify metadata and cover artwork.
 """
 
 import asyncio
+from collections import OrderedDict, deque
+import concurrent.futures
 import os
 import re
 import shutil
 import subprocess
 import sys
-import concurrent.futures
 import threading
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -25,12 +26,11 @@ from mutagen.id3 import ID3, APIC, TIT2, TPE1, TALB, TDRC, TRCK, USLT
 from mutagen.mp3 import MP3
 from mutagen.mp4 import MP4, MP4Cover
 from mutagen.flac import FLAC, Picture
-from backend.lyrics import fetch_lyrics, save_lrc_file
+from backend.lyrics import fetch_lyrics, save_lrc_file, clean_track_title, clean_artist_name
 
 
 def sanitize_filename(name: str) -> str:
     """Removes illegal filesystem characters on Windows and other OSes."""
-    # Replace invalid Windows chars: < > : " / \ | ? *
     cleaned = re.sub(r'[<>:"/\\|?*]', '_', name)
     cleaned = re.sub(r'[\x00-\x1f]', '', cleaned)
     return cleaned.strip(". ") or "track"
@@ -44,18 +44,17 @@ def open_folder_in_explorer(folder_path: str) -> bool:
     try:
         if sys.platform == "win32":
             os.startfile(abs_path)
-            return True
+        elif sys.platform == "darwin":
+            subprocess.run(["open", abs_path], check=True)
         else:
-            subprocess.Popen(["xdg-open", abs_path])
-            return True
+            subprocess.run(["xdg-open", abs_path], check=True)
+        return True
     except Exception as e:
         print(f"[Error opening folder] {e}", file=sys.stderr)
         return False
 
 
-from collections import OrderedDict
-
-_IMAGE_CACHE_MAX = 100
+_IMAGE_CACHE_MAX = 150
 
 class _BoundedImageCache:
     """Thread-safe LRU cache for album artwork with bounded memory."""
@@ -92,9 +91,7 @@ _HTTP_SESSION.headers.update({
 
 
 def fetch_cover_image(cover_url: str) -> Optional[bytes]:
-    """
-    Downloads album artwork, using caching and SNI/IP bypass for restricted ISP networks if needed.
-    """
+    """Downloads album artwork with LRU caching."""
     if not cover_url:
         return None
 
@@ -102,7 +99,7 @@ def fetch_cover_image(cover_url: str) -> Optional[bytes]:
     if cached is not None:
         return cached
 
-    # Attempt 1: Direct fetch via HTTP session
+    # Attempt 1: Direct fetch via persistent session
     try:
         res = _HTTP_SESSION.get(cover_url, timeout=8)
         if res.status_code == 200 and res.content:
@@ -111,7 +108,7 @@ def fetch_cover_image(cover_url: str) -> Optional[bytes]:
     except Exception:
         pass
 
-    # Attempt 2: Standard retry with fresh headers and TLS verification
+    # Attempt 2: Fallback with explicit image headers
     try:
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -171,47 +168,51 @@ def embed_metadata(
             audio.tags.add(APIC(
                 encoding=3,
                 mime="image/jpeg",
-                type=3,  # Cover (front)
+                type=3,
                 desc="Front Cover",
                 data=img_data,
             ))
         audio.save()
 
     elif ext in [".m4a", ".mp4"]:
-        audio = MP4(file_path)
-        audio["\xa9nam"] = [title]
-        audio["\xa9ART"] = [artists]
-        audio["\xa9alb"] = [album]
+        mp4 = MP4(file_path)
+        mp4["\xa9nam"] = [title]
+        mp4["\xa9ART"] = [artists]
+        mp4["\xa9alb"] = [album]
         if year:
-            audio["\xa9day"] = [str(year)]
-        audio["trkn"] = [(track_number, total_tracks)]
+            mp4["\xa9day"] = [str(year)]
+        mp4["trkn"] = [(track_number, total_tracks)]
+
         if lyrics_text:
-            audio["\xa9lyr"] = [lyrics_text]
+            mp4["\xa9lyr"] = [lyrics_text]
+
         if img_data:
-            audio["covr"] = [MP4Cover(img_data, imageformat=MP4Cover.FORMAT_JPEG)]
-        audio.save()
+            cov_format = MP4Cover.FORMAT_PNG if img_data.startswith(b'\x89PNG') else MP4Cover.FORMAT_JPEG
+            mp4["covr"] = [MP4Cover(img_data, imageformat=cov_format)]
+        mp4.save()
 
     elif ext == ".flac":
-        audio = FLAC(file_path)
-        audio["TITLE"] = title
-        audio["ARTIST"] = artists
-        audio["ALBUM"] = album
+        flac = FLAC(file_path)
+        flac["title"] = [title]
+        flac["artist"] = [artists]
+        flac["album"] = [album]
         if year:
-            audio["DATE"] = str(year)
-        audio["TRACKNUMBER"] = str(track_number)
-        audio["TRACKTOTAL"] = str(total_tracks)
+            flac["date"] = [str(year)]
+        flac["tracknumber"] = [str(track_number)]
+        flac["totaltracks"] = [str(total_tracks)]
+
         if lyrics_text:
-            audio["LYRICS"] = lyrics_text
+            flac["lyrics"] = [lyrics_text]
 
         if img_data:
-            picture = Picture()
-            picture.type = 3
-            picture.mime = "image/jpeg"
-            picture.desc = "Front Cover"
-            picture.data = img_data
-            audio.clear_pictures()
-            audio.add_picture(picture)
-        audio.save()
+            pic = Picture()
+            pic.type = 3
+            pic.mime = "image/png" if img_data.startswith(b'\x89PNG') else "image/jpeg"
+            pic.desc = "Front Cover"
+            pic.data = img_data
+            flac.clear_pictures()
+            flac.add_picture(pic)
+        flac.save()
 
 
 def _parse_youtube_url_string(c: str) -> Optional[str]:
@@ -267,23 +268,25 @@ def _parse_youtube_url_string(c: str) -> Optional[str]:
 
 
 def extract_youtube_url(track: Dict[str, Any]) -> Optional[str]:
-    """
-    Extracts and normalizes a direct YouTube or YouTube Music URL from a track dictionary.
-    Inspects direct_url, url, webpage_url, link, spotify_url, uri, and id.
-    Returns a clean, canonical YouTube video URL (https://www.youtube.com/watch?v=VIDEO_ID)
-    or None if no YouTube URL is associated.
-    """
+    """Extracts direct YouTube watch URL from track dict if available."""
     if not isinstance(track, dict):
         return None
 
-    # Check URI (e.g., youtube:track:VIDEO_ID or youtube:VIDEO_ID)
-    uri = str(track.get("uri") or "").strip()
+    yt_id = track.get("youtube_id") or track.get("youtube_video_id") or track.get("yt_id") or track.get("video_id")
+    if yt_id and isinstance(yt_id, str):
+        yt_id = yt_id.strip()
+        if re.match(r"^[a-zA-Z0-9_-]{11}$", yt_id):
+            return f"https://www.youtube.com/watch?v={yt_id}"
+        res = _parse_youtube_url_string(yt_id)
+        if res:
+            return res
+
+    uri = track.get("uri")
     if uri:
         res = _parse_youtube_url_string(uri)
         if res:
             return res
 
-    # Check candidates
     candidates = [
         track.get("direct_url"),
         track.get("url"),
@@ -298,7 +301,6 @@ def extract_youtube_url(track: Dict[str, Any]) -> Optional[str]:
             if res:
                 return res
 
-    # Check ID if source indicates YouTube or if t_id is a YouTube URL/URI
     source = str(track.get("source") or "").lower()
     t_id = str(track.get("id") or "").strip()
     if t_id:
@@ -312,9 +314,28 @@ def extract_youtube_url(track: Dict[str, Any]) -> Optional[str]:
     return None
 
 
+_CACHED_FFMPEG_DIR: Optional[str] = None
+_FFMPEG_RESOLVE_LOCK = threading.Lock()
+
+def get_ffmpeg_dir() -> Optional[str]:
+    """Cached thread-safe resolver for FFmpeg directory."""
+    global _CACHED_FFMPEG_DIR
+    if _CACHED_FFMPEG_DIR is not None:
+        return _CACHED_FFMPEG_DIR or None
+    with _FFMPEG_RESOLVE_LOCK:
+        if _CACHED_FFMPEG_DIR is None:
+            try:
+                from setup_ffmpeg import ensure_ffmpeg
+                bin_path, _ = ensure_ffmpeg()
+                _CACHED_FFMPEG_DIR = os.path.dirname(bin_path) if bin_path else ""
+            except Exception:
+                _CACHED_FFMPEG_DIR = ""
+    return _CACHED_FFMPEG_DIR or None
+
+
 class DownloadManager:
     """
-    Manages active download queue, status reporting, and cancellation.
+    Manages active download queue, real-time progress calculation, and thread-safe cancellation.
     """
 
     def __init__(self):
@@ -322,17 +343,30 @@ class DownloadManager:
         self._cancel_flag = False
         self._lock = threading.Lock()
         self.subscribers: List[asyncio.Queue] = []
+        self._sub_lock = threading.Lock()
 
-    def broadcast_event(self, event_type: str, data: Dict[str, Any]):
-        """Notifies connected SSE listeners of progress updates."""
+    def add_subscriber(self, q: asyncio.Queue) -> None:
+        with self._sub_lock:
+            if q not in self.subscribers:
+                self.subscribers.append(q)
+
+    def remove_subscriber(self, q: asyncio.Queue) -> None:
+        with self._sub_lock:
+            if q in self.subscribers:
+                self.subscribers.remove(q)
+
+    def broadcast_event(self, event_type: str, data: Dict[str, Any]) -> None:
+        """Notifies connected SSE listeners of progress updates safely."""
         payload = {"type": event_type, "data": data}
-        for q in list(self.subscribers):
+        with self._sub_lock:
+            subs = list(self.subscribers)
+        for q in subs:
             try:
                 q.put_nowait(payload)
             except Exception:
                 pass
 
-    def cancel_current_job(self):
+    def cancel_current_job(self) -> None:
         """Signals active downloads to abort."""
         with self._lock:
             self._cancel_flag = True
@@ -350,7 +384,7 @@ class DownloadManager:
         tracks: List[Dict[str, Any]],
         options: Dict[str, Any],
         loop: asyncio.AbstractEventLoop,
-    ):
+    ) -> None:
         """Starts the download job in a background worker thread."""
         with self._lock:
             self._cancel_flag = False
@@ -360,7 +394,7 @@ class DownloadManager:
                 "total": len(tracks),
                 "completed": 0,
                 "failed": 0,
-                "tracks": {t["id"]: {"status": "queued", "progress": 0, "message": "Queued"} for t in tracks},
+                "tracks": {t["id"]: {"status": "queued", "progress": 0, "message": "Queued", "title": t.get("title", "")} for t in tracks},
                 "options": options,
                 "output_dir": options.get("output_dir", ""),
             }
@@ -378,7 +412,7 @@ class DownloadManager:
         tracks: List[Dict[str, Any]],
         options: Dict[str, Any],
         loop: asyncio.AbstractEventLoop,
-    ):
+    ) -> None:
         output_dir = options.get("output_dir", "")
         if not output_dir:
             user_music = os.path.join(os.path.expanduser("~"), "Music", "My-Music Downloads")
@@ -391,18 +425,36 @@ class DownloadManager:
         create_m3u8 = options.get("create_m3u8", True)
         overwrite = options.get("overwrite", False)
 
-        downloaded_files: List[Tuple[str, str, int]] = []  # (filename, title, duration_seconds)
         total_tracks = len(tracks)
 
         # Concurrency setting (default 3, clamped between 1 and 8 for stability & speed)
         concurrency = int(options.get("concurrency", 3))
         concurrency = max(1, min(8, concurrency))
 
+        # Pre-warm unique album artwork in background pool to eliminate artwork latency
+        unique_covers = {t.get("cover_url") for t in tracks if t.get("cover_url")}
+        if unique_covers and options.get("embed_artwork", True):
+            def _prewarm_covers():
+                try:
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=min(4, len(unique_covers))) as pool:
+                        list(pool.map(fetch_cover_image, unique_covers))
+                except Exception:
+                    pass
+            threading.Thread(target=_prewarm_covers, daemon=True).start()
+
+        # Dedicated background executor for asynchronous lyrics pre-fetching
+        lyrics_pool = concurrent.futures.ThreadPoolExecutor(max_workers=concurrency)
+
         downloaded_dict: Dict[int, Tuple[str, str, int]] = {}
         dict_lock = threading.Lock()
         job_start_time = time.time()
         track_bytes_downloaded: Dict[str, int] = {}
         bytes_lock = threading.Lock()
+
+        # Rolling window for responsive instantaneous bandwidth & smooth ETA calculation
+        speed_samples = deque(maxlen=20)  # stores (timestamp, total_bytes)
+        smoothed_speed_bps = 0.0
+        ffmpeg_dir = get_ffmpeg_dir()
 
         with self._lock:
             if not self.active_job:
@@ -418,16 +470,40 @@ class DownloadManager:
                 }
 
         def broadcast_progress_snapshot():
+            nonlocal smoothed_speed_bps
             now = time.time()
-            elapsed = max(1.0, now - job_start_time)
+            elapsed = max(0.5, now - job_start_time)
+
             with bytes_lock:
                 total_bytes = sum(track_bytes_downloaded.values())
 
-            speed_bps = total_bytes / elapsed
-            if speed_bps >= 1024 * 1024:
-                speed_str = f"{speed_bps / (1024 * 1024):.1f} MB/s"
+            # Rolling speed calculation over a 2-second window
+            speed_samples.append((now, total_bytes))
+            while len(speed_samples) > 2 and (now - speed_samples[0][0]) > 2.0:
+                speed_samples.popleft()
+
+            if len(speed_samples) >= 2:
+                dt = now - speed_samples[0][0]
+                db = total_bytes - speed_samples[0][1]
+                if dt >= 0.3:
+                    inst_speed = max(0.0, db / dt)
+                else:
+                    inst_speed = total_bytes / elapsed
             else:
-                speed_str = f"{speed_bps / 1024:.0f} KB/s"
+                inst_speed = total_bytes / elapsed
+
+            if smoothed_speed_bps == 0.0:
+                smoothed_speed_bps = inst_speed
+            else:
+                # 35% instantaneous, 65% history for smooth non-jittery reading
+                smoothed_speed_bps = 0.35 * inst_speed + 0.65 * smoothed_speed_bps
+
+            if smoothed_speed_bps >= 1024 * 1024:
+                speed_str = f"{smoothed_speed_bps / (1024 * 1024):.1f} MB/s"
+            elif smoothed_speed_bps >= 1024:
+                speed_str = f"{smoothed_speed_bps / 1024:.0f} KB/s"
+            else:
+                speed_str = f"{smoothed_speed_bps:.0f} B/s"
 
             with self._lock:
                 if not self.active_job:
@@ -435,22 +511,38 @@ class DownloadManager:
                 completed = self.active_job["completed"]
                 failed = self.active_job["failed"]
                 done_count = completed + failed
-                overall_pct = int((done_count / total_tracks) * 100) if total_tracks > 0 else 0
+
+                # Continuous overall percentage based on real-time track progress sum
+                track_progress_sum = sum(
+                    t.get("progress", 0) for t in self.active_job["tracks"].values()
+                )
+                if done_count >= total_tracks:
+                    overall_pct = 100
+                else:
+                    calc_pct = (track_progress_sum / total_tracks) if total_tracks > 0 else 0
+                    overall_pct = min(99, int(round(calc_pct)))
+
                 active_workers = [
                     t.get("title", "Track")
                     for t in self.active_job["tracks"].values()
-                    if t.get("status") in ("searching", "downloading", "tagging")
+                    if t.get("status") in ("searching", "downloading", "converting", "tagging")
                 ]
 
-            if done_count > 0 and done_count < total_tracks:
-                sec_per_track = elapsed / done_count
-                rem_seconds = int(sec_per_track * (total_tracks - done_count))
-                if rem_seconds >= 60:
-                    eta_str = f"~{rem_seconds // 60}m {rem_seconds % 60}s"
-                else:
-                    eta_str = f"~{rem_seconds}s"
-            elif done_count >= total_tracks:
+            # Responsive dynamic ETA calculation based on progress rate
+            if done_count >= total_tracks:
                 eta_str = "Complete"
+            elif overall_pct >= 2 and elapsed >= 1.0:
+                pct_rate = overall_pct / elapsed
+                if pct_rate > 0.05:
+                    rem_sec = int((100 - overall_pct) / pct_rate)
+                    if rem_sec < 60:
+                        eta_str = f"~{rem_sec}s"
+                    elif rem_sec < 3600:
+                        eta_str = f"~{rem_sec // 60}m {rem_sec % 60:02d}s"
+                    else:
+                        eta_str = f"~{rem_sec // 3600}h {(rem_sec % 3600) // 60}m"
+                else:
+                    eta_str = "Calculating..."
             else:
                 eta_str = "Calculating..."
 
@@ -483,9 +575,12 @@ class DownloadManager:
             cover_url = track.get("cover_url", "")
             duration_ms = track.get("duration_ms", 0)
 
-            # Stagger startup slightly to avoid sudden bursts hitting rate limits
-            if concurrency > 1:
-                time.sleep((idx % concurrency) * 0.2)
+            # Check if track has a direct YouTube URL
+            direct_yt_url = extract_youtube_url(track)
+
+            # Minimal stagger only for initial burst to prevent socket stampede
+            if concurrency > 1 and idx <= concurrency and not direct_yt_url:
+                time.sleep((idx % concurrency) * 0.05)
 
             # Build target filename
             clean_title = sanitize_filename(track_title)
@@ -520,10 +615,16 @@ class DownloadManager:
                 broadcast_progress_snapshot()
                 return
 
-            # Check if track has a direct YouTube URL
-            direct_yt_url = extract_youtube_url(track)
+            # Asynchronously pre-fetch lyrics in parallel with audio download
+            lyrics_future = None
+            if options.get("download_lyrics", True):
+                try:
+                    dur_sec = duration_ms // 1000 if duration_ms > 0 else 0
+                    lyrics_future = lyrics_pool.submit(fetch_lyrics, track_title, track_artists, album_name, dur_sec)
+                except Exception:
+                    pass
 
-            # Notify: Status
+            # Notify initial status
             if direct_yt_url:
                 with self._lock:
                     self.active_job["tracks"][track_id] = {
@@ -554,39 +655,109 @@ class DownloadManager:
 
             try:
                 temp_tmpl = os.path.join(output_dir, f"temp_{track_id}.%(ext)s")
-
-                _last_progress_emit: Dict[str, float] = {}
-                _PROGRESS_THROTTLE_SEC = 0.5
+                _last_progress_emit = 0.0
+                _PROGRESS_THROTTLE_SEC = 0.25
 
                 def ydl_progress_hook(d):
+                    nonlocal _last_progress_emit
                     if self.is_cancelled():
                         raise yt_dlp.utils.DownloadCancelled("Download cancelled by user")
-                    if d.get("status") == "downloading":
+
+                    hook_status = d.get("status")
+                    if hook_status == "downloading":
                         total_bytes = d.get("total_bytes") or d.get("total_bytes_estimate") or 0
                         downloaded_bytes = d.get("downloaded_bytes") or 0
+
                         with bytes_lock:
                             track_bytes_downloaded[track_id] = downloaded_bytes
-                        now = time.time()
-                        if now - _last_progress_emit.get(track_id, 0) < _PROGRESS_THROTTLE_SEC:
-                            return
-                        _last_progress_emit[track_id] = now
+
+                        # Map download phase smoothly across 15% -> 85%
                         if total_bytes > 0:
-                            pct = int((downloaded_bytes / total_bytes) * 70) + 15
-                            loop.call_soon_threadsafe(
-                                self.broadcast_event,
-                                "track_update",
-                                {
-                                    "track_id": track_id,
-                                    "status": "downloading",
-                                    "progress": pct,
-                                    "message": f"Downloading audio {pct}%",
-                                },
-                            )
+                            pct = 15 + int((downloaded_bytes / total_bytes) * 70)
+                        else:
+                            pct = min(84, 15 + int(downloaded_bytes / (6 * 1024 * 1024) * 70))
+                        pct = max(15, min(85, pct))
+
+                        with self._lock:
+                            if self.active_job and track_id in self.active_job.get("tracks", {}):
+                                self.active_job["tracks"][track_id]["progress"] = pct
+                                self.active_job["tracks"][track_id]["status"] = "downloading"
+                                self.active_job["tracks"][track_id]["message"] = f"Downloading audio {pct}%"
+
+                        now = time.time()
+                        if now - _last_progress_emit < _PROGRESS_THROTTLE_SEC:
+                            return
+                        _last_progress_emit = now
+
+                        loop.call_soon_threadsafe(
+                            self.broadcast_event,
+                            "track_update",
+                            {
+                                "track_id": track_id,
+                                "status": "downloading",
+                                "progress": pct,
+                                "message": f"Downloading audio {pct}%",
+                            },
+                        )
                         broadcast_progress_snapshot()
 
-                from setup_ffmpeg import ensure_ffmpeg
-                ffmpeg_bin, _ = ensure_ffmpeg()
-                ffmpeg_dir = os.path.dirname(ffmpeg_bin) if ffmpeg_bin else None
+                    elif hook_status == "finished":
+                        with self._lock:
+                            if self.active_job and track_id in self.active_job.get("tracks", {}):
+                                self.active_job["tracks"][track_id]["progress"] = 85
+                                self.active_job["tracks"][track_id]["status"] = "converting"
+                                self.active_job["tracks"][track_id]["message"] = "Converting audio (FFmpeg)..."
+                        loop.call_soon_threadsafe(
+                            self.broadcast_event,
+                            "track_update",
+                            {
+                                "track_id": track_id,
+                                "status": "converting",
+                                "progress": 85,
+                                "message": "Converting audio (FFmpeg)...",
+                            },
+                        )
+                        broadcast_progress_snapshot()
+
+                def ydl_postprocessor_hook(d):
+                    if self.is_cancelled():
+                        raise yt_dlp.utils.DownloadCancelled("Download cancelled by user")
+
+                    pp_status = d.get("status")
+                    if pp_status == "started":
+                        with self._lock:
+                            if self.active_job and track_id in self.active_job.get("tracks", {}):
+                                self.active_job["tracks"][track_id]["progress"] = 88
+                                self.active_job["tracks"][track_id]["status"] = "converting"
+                                self.active_job["tracks"][track_id]["message"] = f"Extracting {audio_format.upper()} audio..."
+                        loop.call_soon_threadsafe(
+                            self.broadcast_event,
+                            "track_update",
+                            {
+                                "track_id": track_id,
+                                "status": "converting",
+                                "progress": 88,
+                                "message": f"Extracting {audio_format.upper()} audio...",
+                            },
+                        )
+                        broadcast_progress_snapshot()
+                    elif pp_status == "finished":
+                        with self._lock:
+                            if self.active_job and track_id in self.active_job.get("tracks", {}):
+                                self.active_job["tracks"][track_id]["progress"] = 92
+                                self.active_job["tracks"][track_id]["status"] = "tagging"
+                                self.active_job["tracks"][track_id]["message"] = "Embedding metadata & artwork..."
+                        loop.call_soon_threadsafe(
+                            self.broadcast_event,
+                            "track_update",
+                            {
+                                "track_id": track_id,
+                                "status": "tagging",
+                                "progress": 92,
+                                "message": "Embedding metadata & artwork...",
+                            },
+                        )
+                        broadcast_progress_snapshot()
 
                 ydl_opts = {
                     "format": "bestaudio/best",
@@ -594,12 +765,11 @@ class DownloadManager:
                     "noplaylist": True,
                     "nocheckcertificate": True,
                     "progress_hooks": [ydl_progress_hook],
+                    "postprocessor_hooks": [ydl_postprocessor_hook],
                     "ffmpeg_location": ffmpeg_dir,
-                    "concurrent_fragment_downloads": 4,
-                    "http_chunk_size": 10485760,
-                    "buffersize": 1024 * 64,
-                    "retries": 2,
-                    "fragment_retries": 2,
+                    "socket_timeout": 15,
+                    "retries": 3,
+                    "fragment_retries": 3,
                     "postprocessors": [
                         {
                             "key": "FFmpegExtractAudio",
@@ -620,80 +790,89 @@ class DownloadManager:
 
                 download_success = False
 
-                if direct_yt_url:
-                    # Direct YouTube URL: Download directly without any duplicate search!
-                    try:
-                        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                            ydl.download([direct_yt_url])
-                        if os.path.exists(temp_converted):
-                            download_success = True
-                    except Exception as yt_err:
-                        print(f"[Direct YouTube Download Warning] Failed for '{direct_yt_url}': {yt_err}")
-
-                if not download_success:
-                    if self.is_cancelled():
-                        return
-
+                # Single reusable YoutubeDL session per track worker to eliminate instantiation overhead
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     if direct_yt_url:
-                        with self._lock:
-                            if self.active_job and track_id in self.active_job.get("tracks", {}):
-                                self.active_job["tracks"][track_id]["status"] = "searching"
-                                self.active_job["tracks"][track_id]["message"] = "Direct stream unavailable, searching audio alternatives..."
-                        loop.call_soon_threadsafe(
-                            self.broadcast_event,
-                            "track_update",
-                            {"track_id": track_id, "status": "searching", "progress": 20, "message": "Direct stream unavailable, searching audio alternatives..."},
-                        )
-                        broadcast_progress_snapshot()
-
-                    # Multi-Strategy Search & Fallback Pipeline (YouTube + SoundCloud)
-                    search_queries = [
-                        f"ytsearch1:{track_artists} - {track_title} official audio",
-                        f"scsearch1:{track_artists} - {track_title}",
-                        f"ytsearch1:{track_artists} - {track_title}",
-                        f"scsearch1:{track_title}",
-                    ]
-
-                    for q in search_queries:
-                        if self.is_cancelled():
-                            return
                         try:
-                            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                                ydl.download([q])
+                            ydl.download([direct_yt_url])
                             if os.path.exists(temp_converted):
                                 download_success = True
-                                break
-                        except Exception:
-                            continue
+                        except Exception as yt_err:
+                            print(f"[Direct YouTube Download Warning] Failed for '{direct_yt_url}': {yt_err}")
+
+                    if not download_success:
+                        if self.is_cancelled():
+                            return
+
+                        if direct_yt_url:
+                            with self._lock:
+                                if self.active_job and track_id in self.active_job.get("tracks", {}):
+                                    self.active_job["tracks"][track_id]["status"] = "searching"
+                                    self.active_job["tracks"][track_id]["progress"] = 20
+                                    self.active_job["tracks"][track_id]["message"] = "Direct stream unavailable, searching audio alternatives..."
+                            loop.call_soon_threadsafe(
+                                self.broadcast_event,
+                                "track_update",
+                                {"track_id": track_id, "status": "searching", "progress": 20, "message": "Direct stream unavailable, searching audio alternatives..."},
+                            )
+                            broadcast_progress_snapshot()
+
+                        # Multi-Strategy Search & Fallback Pipeline with cleaned metadata queries
+                        c_title = clean_track_title(track_title)
+                        c_artist = clean_artist_name(track_artists)
+
+                        search_queries = [
+                            f"ytsearch1:{track_artists} - {track_title} official audio",
+                            f"ytsearch1:{c_artist} - {c_title}",
+                            f"scsearch1:{c_artist} - {c_title}",
+                            f"ytsearch1:{c_artist} {c_title}",
+                            f"scsearch1:{c_title}",
+                        ]
+
+                        for q in search_queries:
+                            if self.is_cancelled():
+                                return
+                            try:
+                                ydl.download([q])
+                                if os.path.exists(temp_converted):
+                                    download_success = True
+                                    break
+                            except Exception:
+                                continue
 
                 if not download_success or not os.path.exists(temp_converted):
                     raise RuntimeError(f"Could not extract audio stream for '{track_title}'.")
 
-                # Move temp to final filename
+                # Move temp to final target filename
                 if os.path.exists(final_filepath):
                     os.remove(final_filepath)
                 shutil.move(temp_converted, final_filepath)
 
                 # Tagging & Lyrics phase
+                with self._lock:
+                    if self.active_job and track_id in self.active_job.get("tracks", {}):
+                        self.active_job["tracks"][track_id]["status"] = "tagging"
+                        self.active_job["tracks"][track_id]["progress"] = 95
+                        self.active_job["tracks"][track_id]["message"] = "Embedding metadata & lyrics..."
                 loop.call_soon_threadsafe(
                     self.broadcast_event,
                     "track_update",
-                    {"track_id": track_id, "status": "tagging", "progress": 90, "message": "Embedding metadata & lyrics..."},
+                    {"track_id": track_id, "status": "tagging", "progress": 95, "message": "Embedding metadata & lyrics..."},
                 )
+                broadcast_progress_snapshot()
 
-                # Fetch synchronized & plain lyrics
+                # Collect lyrics (from background future)
                 lyrics_text = None
-                if options.get("download_lyrics", True):
+                if lyrics_future is not None:
                     try:
-                        dur_sec = duration_ms // 1000 if duration_ms > 0 else 0
-                        lyrics_data = fetch_lyrics(track_title, track_artists, album_name, dur_sec)
+                        lyrics_data = lyrics_future.result(timeout=1.5)
                         if lyrics_data:
                             lyrics_text = lyrics_data.get("plain_lyrics") or lyrics_data.get("synced_lyrics")
                             if lyrics_data.get("synced_lyrics"):
                                 base_fname = os.path.splitext(filename)[0]
                                 save_lrc_file(output_dir, base_fname, lyrics_data["synced_lyrics"])
                     except Exception as lex:
-                        print(f"[Lyrics] Minor error fetching lyrics for '{track_title}': {lex}")
+                        print(f"[Lyrics] Minor notice for '{track_title}': {lex}")
 
                 embed_metadata(
                     file_path=final_filepath,
@@ -735,14 +914,14 @@ class DownloadManager:
                     self.active_job["failed"] += 1
                     self.active_job["tracks"][track_id] = {
                         "status": "failed",
-                        "progress": 0,
+                        "progress": 100,
                         "message": f"Error: {str(err)}",
                         "title": track_title,
                     }
                 loop.call_soon_threadsafe(
                     self.broadcast_event,
                     "track_update",
-                    {"track_id": track_id, "status": "failed", "progress": 0, "message": str(err)},
+                    {"track_id": track_id, "status": "failed", "progress": 100, "message": str(err)},
                 )
                 broadcast_progress_snapshot()
             finally:
@@ -756,15 +935,19 @@ class DownloadManager:
                             pass
 
         # Run concurrent downloads safely with ThreadPoolExecutor
-        with concurrent.futures.ThreadPoolExecutor(max_workers=concurrency) as executor:
-            futures = [executor.submit(download_single_track, (idx, track)) for idx, track in enumerate(tracks, 1)]
-            for future in concurrent.futures.as_completed(futures):
-                if self.is_cancelled():
-                    executor.shutdown(wait=False, cancel_futures=True)
-                    break
+        try:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=concurrency) as executor:
+                futures = [executor.submit(download_single_track, (idx, track)) for idx, track in enumerate(tracks, 1)]
+                for future in concurrent.futures.as_completed(futures):
+                    if self.is_cancelled():
+                        executor.shutdown(wait=False, cancel_futures=True)
+                        break
+        finally:
+            lyrics_pool.shutdown(wait=False)
 
         # Generate .m3u8 playlist file in exact original playlist order
         sorted_files = [downloaded_dict[k] for k in sorted(downloaded_dict.keys())]
+        m3u8_path = ""
         if create_m3u8 and sorted_files:
             try:
                 m3u8_path = os.path.join(output_dir, f"{sanitize_filename(playlist_title)}.m3u8")

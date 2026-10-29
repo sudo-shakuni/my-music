@@ -1775,7 +1775,7 @@ function handleServerEvent(type, data) {
     updateFilterChipBadges();
 
     // Track active downloads for the Live Queue Drawer
-    if (status === "downloading" || status === "searching" || status === "tagging") {
+    if (status === "downloading" || status === "searching" || status === "converting" || status === "tagging") {
       let trackInfo = state.currentPlaylist ? state.currentPlaylist.tracks.find((t) => t.id === track_id) : null;
       state.activeDownloadsMap.set(track_id, {
         track_id,
