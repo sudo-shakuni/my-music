@@ -1544,12 +1544,17 @@ function playTrackAudio(track, isHQ, audioUrlOrPath) {
       rowBtn.innerHTML = '<i data-lucide="pause-circle"></i>';
       rowBtn.style.color = "var(--spotify-green)";
     }
+    const rowEl = document.getElementById(`track-row-${track.id}`);
+    if (rowEl) {
+      rowEl.classList.add("playing");
+    }
   }
   if (window.lucide) window.lucide.createIcons();
 }
 
 function resetRowPlayIcons() {
   state.currentlyPlayingId = null;
+  document.querySelectorAll(".track-row.playing").forEach((r) => r.classList.remove("playing"));
   document.querySelectorAll(".btn-preview-play").forEach((btn) => {
     btn.innerHTML = '<i data-lucide="play-circle"></i>';
     btn.style.color = "";
