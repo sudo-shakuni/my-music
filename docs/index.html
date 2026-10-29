@@ -4,18 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>My-Music — Studio-Grade Music & Playlist Downloader</title>
-  <!-- Open Graph / Meta for Social Previews (Reddit, Twitter, Discord) -->
-  <meta property="og:type" content="website">
-  <meta property="og:title" content="My-Music — Free Lossless Music & Playlist Downloader">
-  <meta property="og:description" content="Download Spotify, YouTube, JioSaavn, and Amazon Music tracks in Lossless FLAC or 320kbps MP3 with full ID3 tags, cover art, and smart .m3u8 playlists. Zero API keys required.">
-  <meta property="og:image" content="https://raw.githubusercontent.com/sudo-shakuni/my-music/main/assets/hero_banner.jpg">
-  <meta property="og:url" content="https://sudo-shakuni.github.io/my-music/">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="My-Music — Studio-Grade Music & Playlist Downloader">
-  <meta name="twitter:description" content="Free open-source desktop music downloader. FLAC / MP3 320k, ID3 tags, and zero API keys.">
-  <meta name="twitter:image" content="https://raw.githubusercontent.com/sudo-shakuni/my-music/main/assets/hero_banner.jpg">
-  <link rel="icon" type="image/jpeg" href="logo.jpg?v=1.1.0">
-  <link rel="stylesheet" href="style.css?v=1.1.0">
+  <link rel="icon" type="image/jpeg" href="logo.jpg">
+  <link rel="stylesheet" href="style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -23,12 +13,6 @@
   <script src="https://unpkg.com/lucide@0.460.0" defer></script>
 </head>
 <body>
-
-  <!-- Live Demo Banner for GitHub Pages -->
-  <div id="demo-banner" style="background: linear-gradient(90deg, #1db954 0%, #1ed760 100%); color: #000; padding: 10px 20px; font-weight: 600; font-size: 14px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 15px; z-index: 9999; position: relative;">
-    <span>🚀 <strong>My-Music Web UI Preview</strong> — Interactive Web Showcase. To download tracks offline in Lossless FLAC/320kbps, download the native Desktop app!</span>
-    <a href="https://github.com/sudo-shakuni/my-music/releases/latest" target="_blank" style="background: #000; color: #fff; text-decoration: none; padding: 5px 14px; border-radius: 20px; font-size: 13px; font-weight: bold; transition: opacity 0.2s;">Download v1.0.0</a>
-  </div>
   <div class="app-container">
     
     <!-- Top Navigation Bar -->
@@ -171,7 +155,7 @@
             </div>
             <div class="library-search-box">
               <i data-lucide="search" class="lib-search-icon"></i>
-              <input type="text" id="library-filter-input" aria-label="Filter your playlists" placeholder="Filter your playlists..." />
+              <input type="text" id="library-filter-input" placeholder="Filter your playlists..." />
             </div>
           </div>
 
@@ -187,15 +171,15 @@
         <!-- Auto-Detected Clipboard Banner -->
         <div id="clipboard-banner" class="clipboard-banner card hidden">
           <div class="clipboard-banner-left">
-            <span id="clipboard-platform-badge" class="platform-badge platform-badge-sm platform-badge-spotify">🟢 Spotify</span>
+            <i data-lucide="sparkles" class="clipboard-icon"></i>
             <div class="clipboard-banner-text-col">
-              <span class="clipboard-title">Music link detected in clipboard</span>
+              <span class="clipboard-title">Spotify link detected in clipboard</span>
               <span id="clipboard-url-preview" class="clipboard-url"></span>
             </div>
           </div>
           <div class="clipboard-banner-actions">
             <button type="button" id="btn-clipboard-load" class="btn btn-primary btn-sm">
-              <i data-lucide="arrow-down-circle"></i> Load Track / Playlist
+              <i data-lucide="arrow-down-circle"></i> Load Playlist
             </button>
             <button type="button" id="btn-clipboard-dismiss" class="btn-icon btn-sm" title="Dismiss" aria-label="Dismiss notification">
               <i data-lucide="x"></i>
@@ -218,7 +202,6 @@
                 aria-label="Spotify, YouTube, JioSaavn, or Amazon Music link"
                 required
               />
-              <span id="detected-platform-badge" class="detected-platform-badge platform-badge platform-badge-sm hidden"></span>
               <button type="button" id="btn-paste-clipboard" class="btn-input-action" title="Paste Music URL from Clipboard">
                 <i data-lucide="clipboard"></i> Paste
               </button>
@@ -234,10 +217,10 @@
 
           <div class="supported-platforms-bar" style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; align-items: center; font-size: 0.8rem; color: #888;">
             <span style="font-weight: 600;">Supported:</span>
-            <span class="platform-badge platform-badge-sm platform-badge-spotify">🟢 Spotify</span>
-            <span class="platform-badge platform-badge-sm platform-badge-youtube">🔴 YouTube & YT Music</span>
-            <span class="platform-badge platform-badge-sm platform-badge-jiosaavn">🔵 JioSaavn</span>
-            <span class="platform-badge platform-badge-sm platform-badge-amazon">🟠 Amazon Music</span>
+            <span class="platform-chip" style="background: rgba(29, 185, 84, 0.15); color: #1ed760; border: 1px solid rgba(29, 185, 84, 0.3); padding: 3px 10px; border-radius: 12px; font-weight: 500;">🟢 Spotify</span>
+            <span class="platform-chip" style="background: rgba(255, 0, 0, 0.15); color: #ff5555; border: 1px solid rgba(255, 0, 0, 0.3); padding: 3px 10px; border-radius: 12px; font-weight: 500;">🔴 YouTube & YT Music</span>
+            <span class="platform-chip" style="background: rgba(0, 168, 225, 0.15); color: #00b4f0; border: 1px solid rgba(0, 168, 225, 0.3); padding: 3px 10px; border-radius: 12px; font-weight: 500;">🔵 JioSaavn</span>
+            <span class="platform-chip" style="background: rgba(255, 153, 0, 0.15); color: #ffaa00; border: 1px solid rgba(255, 153, 0, 0.3); padding: 3px 10px; border-radius: 12px; font-weight: 500;">🟠 Amazon Music</span>
           </div>
 
           <div class="quick-examples" style="margin-top: 12px;">
@@ -325,39 +308,17 @@
 
         <div class="settings-toggles">
           <label class="checkbox-label">
-            <input type="checkbox" id="toggle-m3u8" aria-label="Generate smart m3u8 playlist file" checked>
+            <input type="checkbox" id="toggle-m3u8" checked>
             <span>Create <code>.m3u8</code> playlist file (clones order for media players)</span>
           </label>
           <label class="checkbox-label">
-            <input type="checkbox" id="toggle-artwork" aria-label="Embed album artwork in audio file" checked>
+            <input type="checkbox" id="toggle-artwork" checked>
             <span>Embed full-resolution album artwork into audio files</span>
           </label>
           <label class="checkbox-label">
-            <input type="checkbox" id="toggle-overwrite" aria-label="Overwrite already downloaded files">
+            <input type="checkbox" id="toggle-overwrite">
             <span>Overwrite already downloaded files</span>
           </label>
-        </div>
-        <!-- Spotify Developer API Credentials (Optional - Bypasses Rate Limits) -->
-        <div class="settings-credentials-section" style="margin-top: 18px; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.08);">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-            <label style="font-weight: 600; font-size: 0.92rem; color: #fff; display: flex; align-items: center; gap: 6px;">
-              <i data-lucide="key" style="width: 16px; height: 16px; color: #1db954;"></i> Custom Spotify Developer Credentials
-            </label>
-            <span style="font-size: 0.75rem; color: #1db954; background: rgba(29, 185, 84, 0.12); padding: 2px 8px; border-radius: 12px; font-weight: 600;">Optional</span>
-          </div>
-          <p style="font-size: 0.8rem; color: #94a3b8; margin: 0 0 10px; line-height: 1.4;">
-            <strong>No login required for public playlists:</strong> Simply paste any playlist link into the search bar above. If you want your own isolated API quota for loading your personal private library without public rate limits, provide your Spotify Developer credentials below:
-          </p>
-          <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: center;">
-            <input type="text" id="setting-spotify-client-id" aria-label="Spotify Client ID" placeholder="Spotify Client ID" autocomplete="off" style="font-size: 0.85rem;" />
-            <input type="password" id="setting-spotify-client-secret" aria-label="Spotify Client Secret" placeholder="Spotify Client Secret" autocomplete="off" style="font-size: 0.85rem;" />
-            <button type="button" id="btn-save-spotify-creds" class="btn btn-secondary btn-sm" style="white-space: nowrap;">
-              <i data-lucide="check"></i> Save Keys
-            </button>
-          </div>
-          <small style="display: block; margin-top: 6px; color: #64748b; font-size: 0.76rem;">
-            Get free keys from <a href="https://developer.spotify.com/dashboard" target="_blank" style="color: #1db954; text-decoration: underline;">developer.spotify.com/dashboard</a>. Redirect URI: <code>http://127.0.0.1:9900/</code>
-          </small>
         </div>
       </section>
 
@@ -394,10 +355,7 @@
           </div>
           
           <div class="playlist-info">
-            <div class="playlist-badges-row">
-              <span id="pl-platform-badge" class="platform-badge platform-badge-sm platform-badge-spotify">🟢 Spotify</span>
-              <span id="pl-type" class="pl-type-badge">PLAYLIST</span>
-            </div>
+            <span id="pl-type" class="pl-type-badge">PLAYLIST</span>
             <h2 id="pl-title" class="pl-title">Playlist Title</h2>
             <p id="pl-desc" class="pl-desc">Curator description</p>
             
@@ -700,7 +658,7 @@
                 Paste the copied token here:
               </label>
               <div class="manual-token-input-row">
-                <input type="password" id="input-manual-token" aria-label="Manual Spotify access token" placeholder="Paste token here (starts with BQC... or BQA...)" autocomplete="off" />
+                <input type="password" id="input-manual-token" placeholder="Paste token here (starts with BQC... or BQA...)" autocomplete="off" />
                 <button type="button" id="btn-submit-manual-token" class="btn btn-success">
                   Connect
                 </button>
@@ -755,8 +713,8 @@
               </div>
             </div>
             <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 12px;">
-              <input type="text" id="input-custom-client-id" aria-label="Custom Spotify Client ID" placeholder="Client ID (32 characters)" autocomplete="off" />
-              <input type="password" id="input-custom-client-secret" aria-label="Custom Spotify Client Secret" placeholder="Client Secret (32 characters)" autocomplete="off" />
+              <input type="text" id="input-custom-client-id" placeholder="Client ID (32 characters)" autocomplete="off" />
+              <input type="password" id="input-custom-client-secret" placeholder="Client Secret (32 characters)" autocomplete="off" />
               <button type="button" id="btn-custom-client-login" class="btn btn-spotify btn-block">
                 <span>Connect with My Custom App</span>
               </button>
@@ -799,7 +757,7 @@
             <div class="qr-link-info">
               <span class="qr-instructions">Scan with your Phone Camera on the same Wi-Fi:</span>
               <div class="qr-url-row">
-                <input type="text" id="mobile-transfer-url" aria-label="Mobile transfer direct URL" readonly class="qr-url-input" />
+                <input type="text" id="mobile-transfer-url" readonly class="qr-url-input" />
                 <button type="button" id="btn-copy-mobile-url" class="btn btn-secondary btn-sm" title="Copy URL">
                   <i data-lucide="copy"></i> Copy
                 </button>
@@ -833,6 +791,6 @@
 
   </div>
 
-  <script src="app.js?v=1.1.0"></script>
+  <script src="app.js"></script>
 </body>
 </html>

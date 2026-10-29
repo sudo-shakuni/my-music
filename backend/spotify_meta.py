@@ -10,6 +10,7 @@ import re
 import threading
 import time
 from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import urlparse
 import requests
 
 
@@ -19,7 +20,39 @@ HEADERS = {
     "Accept-Language": "en-US,en;q=0.5",
 }
 
-# Standard compliant TLS connection (hardcoded IP / Host override removed to prevent 421 Misdirected Request)
+# Setup resilient network routing for restricted/ISP-filtered networks (SNI bypass for Spotify endpoints)
+try:
+    import spotapi.http.request
+
+    _orig_spotapi_build_request = spotapi.http.request.TLSClient.build_request
+
+    def _get_ip_for_host(host: str) -> Optional[str]:
+        normalized = host.lower().strip(".")
+        if normalized == "open.spotifycdn.com" or normalized.endswith(".open.spotifycdn.com"):
+            return "140.248.138.251"
+        if normalized == "open.spotify.com" or normalized.endswith(".open.spotify.com"):
+            return "151.101.67.42"
+        if normalized == "spotify.com" or normalized.endswith(".spotify.com"):
+            return "35.186.224.24"
+        return None
+
+    def _patched_spotapi_build_request(self, method: str, url: Any, **kwargs):
+        if isinstance(url, (bytes, memoryview)):
+            url = url.decode("utf-8")
+        headers = kwargs.setdefault("headers", {})
+        parsed = urlparse(str(url))
+        host = parsed.hostname or ""
+        if host:
+            ip = _get_ip_for_host(host)
+            if ip:
+                headers["Host"] = host
+                url = str(url).replace(f"https://{host}", f"https://{ip}")
+                kwargs["verify"] = False
+        return _orig_spotapi_build_request(self, method, url, **kwargs)
+
+    spotapi.http.request.TLSClient.build_request = _patched_spotapi_build_request
+except Exception:
+    pass
 
 
 # Standard urllib3 warning suppression

@@ -12,28 +12,6 @@
  */
 
 // Application State
-
-// Platform Recognition & Visual Badge Helper
-function getPlatformInfo(textOrUrl) {
-  const str = (textOrUrl || "").toLowerCase().trim();
-  if (str.includes("spotify.com") || str.startsWith("spotify:") || str === "spotify") {
-    return { id: "spotify", name: "Spotify", badgeClass: "platform-badge-spotify", icon: "🟢", theme: "theme-spotify" };
-  }
-  if (str.includes("music.youtube.com") || str === "youtube_music") {
-    return { id: "youtube_music", name: "YouTube Music", badgeClass: "platform-badge-youtube", icon: "🔴", theme: "theme-youtube" };
-  }
-  if (str.includes("youtube.com") || str.includes("youtu.be") || str === "youtube") {
-    return { id: "youtube", name: "YouTube", badgeClass: "platform-badge-youtube", icon: "🔴", theme: "theme-youtube" };
-  }
-  if (str.includes("jiosaavn.com") || str.includes("saavn.com") || str === "jiosaavn") {
-    return { id: "jiosaavn", name: "JioSaavn", badgeClass: "platform-badge-jiosaavn", icon: "🔵", theme: "theme-jiosaavn" };
-  }
-  if (str.includes("music.amazon.") || str.includes("amazon.com/music") || str === "amazon") {
-    return { id: "amazon", name: "Amazon Music", badgeClass: "platform-badge-amazon", icon: "🟠", theme: "theme-amazon" };
-  }
-  return null;
-}
-
 const state = {
   currentPlaylist: null,
   selectedTrackIds: new Set(),
@@ -124,9 +102,6 @@ const elements = {
   btnCustomClientLogin: document.getElementById("btn-custom-client-login"),
   inputCustomClientId: document.getElementById("input-custom-client-id"),
   inputCustomClientSecret: document.getElementById("input-custom-client-secret"),
-  settingSpotifyClientId: document.getElementById("setting-spotify-client-id"),
-  settingSpotifyClientSecret: document.getElementById("setting-spotify-client-secret"),
-  btnSaveSpotifyCreds: document.getElementById("btn-save-spotify-creds"),
 
   fetchForm: document.getElementById("fetch-form"),
   playlistUrlInput: document.getElementById("playlist-url"),
@@ -284,31 +259,6 @@ document.addEventListener("DOMContentLoaded", () => {
   setupEventListeners();
   setupAudioPlayer();
   setupQualityPills();
-
-  // Load saved Spotify Developer Credentials
-  const savedSpotifyCid = localStorage.getItem("my_music_spotify_client_id") || "";
-  const savedSpotifyCsec = localStorage.getItem("my_music_spotify_client_secret") || "";
-  if (elements.settingSpotifyClientId) elements.settingSpotifyClientId.value = savedSpotifyCid;
-  if (elements.settingSpotifyClientSecret) elements.settingSpotifyClientSecret.value = savedSpotifyCsec;
-  if (elements.inputCustomClientId && savedSpotifyCid) elements.inputCustomClientId.value = savedSpotifyCid;
-  if (elements.inputCustomClientSecret && savedSpotifyCsec) elements.inputCustomClientSecret.value = savedSpotifyCsec;
-
-  if (elements.btnSaveSpotifyCreds) {
-    elements.btnSaveSpotifyCreds.addEventListener("click", () => {
-      const cid = elements.settingSpotifyClientId ? elements.settingSpotifyClientId.value.trim() : "";
-      const csec = elements.settingSpotifyClientSecret ? elements.settingSpotifyClientSecret.value.trim() : "";
-      localStorage.setItem("my_music_spotify_client_id", cid);
-      localStorage.setItem("my_music_spotify_client_secret", csec);
-      if (elements.inputCustomClientId) elements.inputCustomClientId.value = cid;
-      if (elements.inputCustomClientSecret) elements.inputCustomClientSecret.value = csec;
-      if (cid) {
-        showToast("Spotify Developer Credentials saved! Isolated rate-limit quota active.", "success");
-      } else {
-        showToast("Cleared Spotify Developer Credentials.", "info");
-      }
-    });
-  }
-
   setupFilterChips();
   setupIntersectionObserver();
   setupKeyboardShortcuts();
@@ -382,7 +332,6 @@ async function loadSystemInfo() {
 function setupEventListeners() {
   // Input clear and paste button visibility
   elements.playlistUrlInput.addEventListener("input", () => {
-    updateInputPlatformBadge();
     const hasVal = elements.playlistUrlInput.value.trim().length > 0;
     if (hasVal) {
       elements.btnClearUrl.classList.remove("hidden");
@@ -704,17 +653,9 @@ async function chooseFolderNative() {
   }
 }
 
-// Auto-Clipboard Detection Setup (Window Focus & Visibility Detection)
+// Auto-Clipboard Detection Setup
 function setupClipboardAutoDetect() {
-  window.addEventListener("focus", checkClipboardForMusicLink);
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") {
-      checkClipboardForMusicLink();
-    }
-  });
-
-  // Check once after initial startup
-  setTimeout(checkClipboardForMusicLink, 800);
+  window.addEventListener("focus", checkClipboardForSpotifyLink);
 
   if (elements.btnClipboardLoad) {
     elements.btnClipboardLoad.addEventListener("click", () => {
@@ -723,7 +664,6 @@ function setupClipboardAutoDetect() {
         elements.playlistUrlInput.value = url;
         elements.btnClearUrl.classList.remove("hidden");
         if (elements.btnPasteClipboard) elements.btnPasteClipboard.classList.add("hidden");
-        updateInputPlatformBadge();
         hideClipboardBanner();
         elements.fetchForm.requestSubmit();
       }
@@ -735,46 +675,46 @@ function setupClipboardAutoDetect() {
   }
 }
 
-async function checkClipboardForMusicLink() {
+async function checkClipboardForSpotifyLink() {
   try {
     if (!navigator.clipboard || !navigator.clipboard.readText) return;
     const text = (await navigator.clipboard.readText()).trim();
     if (!text) return;
 
-    const p = getPlatformInfo(text);
-    if (p && text !== state.lastClipboardChecked && (!state.currentPlaylist || text !== elements.playlistUrlInput.value.trim())) {
+    const normalizedText = text.toLowerCase();
+    let host = "";
+    let path = "";
+    try {
+      const parsed = new URL(text);
+      host = parsed.hostname.toLowerCase();
+      path = parsed.pathname || "";
+    } catch (_) {}
+
+    const matchesDomain = (domain) => host === domain || host.endsWith(`.${domain}`);
+    const isMusicLink =
+      normalizedText.startsWith("spotify:") ||
+      matchesDomain("spotify.com") ||
+      matchesDomain("youtube.com") ||
+      matchesDomain("youtu.be") ||
+      matchesDomain("jiosaavn.com") ||
+      matchesDomain("saavn.com") ||
+      host.startsWith("music.amazon.") ||
+      (host === "amazon.com" && path.startsWith("/music"));
+    if (isMusicLink && text !== state.lastClipboardChecked && (!state.currentPlaylist || text !== elements.playlistUrlInput.value.trim())) {
       state.lastClipboardChecked = text;
       elements.clipboardUrlPreview.textContent = text;
-      
-      const bannerBadge = document.getElementById("clipboard-platform-badge");
-      if (bannerBadge) {
-        bannerBadge.className = `platform-badge platform-badge-sm ${p.badgeClass}`;
-        bannerBadge.textContent = `${p.icon} ${p.name}`;
-      }
       const bannerTitle = elements.clipboardBanner.querySelector(".clipboard-title");
       if (bannerTitle) {
-        bannerTitle.textContent = `${p.name} link detected in clipboard`;
+        if (text.includes("youtube") || text.includes("youtu.be")) bannerTitle.textContent = "YouTube Music link detected";
+        else if (text.includes("saavn")) bannerTitle.textContent = "JioSaavn link detected";
+        else if (text.includes("amazon")) bannerTitle.textContent = "Amazon Music link detected";
+        else bannerTitle.textContent = "Spotify link detected";
       }
-      elements.clipboardBanner.className = `clipboard-banner card ${p.theme}`;
       elements.clipboardBanner.classList.remove("hidden");
       if (window.lucide) window.lucide.createIcons();
     }
   } catch (err) {
     // Clipboard permission not granted yet - ignore quietly
-  }
-}
-
-function updateInputPlatformBadge() {
-  const url = elements.playlistUrlInput ? elements.playlistUrlInput.value.trim() : "";
-  const badge = document.getElementById("detected-platform-badge");
-  if (!badge) return;
-  const p = getPlatformInfo(url);
-  if (p) {
-    badge.className = `detected-platform-badge platform-badge platform-badge-sm ${p.badgeClass}`;
-    badge.textContent = `${p.icon} ${p.name}`;
-    badge.classList.remove("hidden");
-  } else {
-    badge.classList.add("hidden");
   }
 }
 
@@ -1025,11 +965,7 @@ async function fetchPlaylistData(url) {
     const res = await fetch("/api/playlist/info", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        url: url,
-        client_id: localStorage.getItem("my_music_spotify_client_id") || undefined,
-        client_secret: localStorage.getItem("my_music_spotify_client_secret") || undefined,
-      }),
+      body: JSON.stringify({ url: url }),
     });
 
     if (!res.ok) {
@@ -1079,14 +1015,7 @@ function renderPlaylistView(data) {
   // Populate Header
   elements.plCover.src = data.cover_url || "https://community.spotify.com/t5/image/serverpage/image-id/25294i2836BD1C1A311FFE/image-size/large?v=v2&px=999";
   const badgePrefix = data.platform_badge ? `${data.platform_badge} • ` : "";
-  const plPlatform = data.source || (elements.playlistUrlInput ? elements.playlistUrlInput.value : "") || "spotify";
-  const pInfo = getPlatformInfo(plPlatform) || { name: data.platform_badge || "Spotify", badgeClass: "platform-badge-spotify", icon: "🟢" };
-  const plBadge = document.getElementById("pl-platform-badge");
-  if (plBadge) {
-    plBadge.className = `platform-badge platform-badge-sm ${pInfo.badgeClass}`;
-    plBadge.textContent = `${pInfo.icon} ${data.platform_badge || pInfo.name}`;
-  }
-  elements.plType.textContent = (data.type || "PLAYLIST").toUpperCase();
+  elements.plType.textContent = `${badgePrefix}${(data.type || "PLAYLIST").toUpperCase()}`;
   elements.plTitle.textContent = data.title;
   elements.plDesc.textContent = data.description || (data.author ? `Curated by ${data.author}` : "");
   elements.plAuthor.textContent = data.author || "Curator";
@@ -1179,7 +1108,6 @@ function renderNextTrackBatch() {
         <div class="track-details">
           <div class="track-name-row">
             <span class="track-name" title="${escapeHtml(track.title)}">${escapeHtml(track.title)}</span>
-            <span class="platform-badge platform-badge-xs ${getPlatformInfo(track.source || (state.currentPlaylist ? state.currentPlaylist.source : '') || 'spotify')?.badgeClass || 'platform-badge-spotify'}">${getPlatformInfo(track.source || (state.currentPlaylist ? state.currentPlaylist.source : '') || 'spotify')?.name || 'Spotify'}</span>
             ${track.is_explicit ? '<span class="explicit-tag">E</span>' : ""}
             ${
               isDownloaded
@@ -2291,14 +2219,9 @@ async function loadUserPlaylists(forceRefresh = false) {
             Spotify's shared public app reached its daily quota limit for automatic playlist listing.<br>
             <strong>You can still download any playlist right now:</strong> Simply copy the link to any playlist from Spotify and paste it into the search box at the top!
           </p>
-          <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-            <button class="btn btn-primary" style="padding: 8px 20px;" onclick="switchNavTab('search'); if(elements.playlistUrlInput) elements.playlistUrlInput.focus();">
-              <i data-lucide="search"></i> Paste Playlist URL (No Login Needed)
-            </button>
-            <button class="btn btn-secondary" style="padding: 8px 20px;" onclick="openSpotifyAuthModal();">
-              <i data-lucide="key"></i> Connect Custom Developer App
-            </button>
-          </div>
+          <button class="btn btn-primary" style="padding: 8px 20px;" onclick="switchNavTab('search'); if(elements.playlistUrlInput) elements.playlistUrlInput.focus();">
+            <i data-lucide="search"></i> Paste Playlist URL to Download
+          </button>
         </div>
       `;
       if (window.lucide) window.lucide.createIcons();

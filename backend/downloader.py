@@ -10,11 +10,11 @@ import re
 import shutil
 import subprocess
 import sys
+from urllib.parse import urlparse
 import concurrent.futures
 import threading
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple
-import urllib.parse
 import requests
 
 import static_ffmpeg
@@ -91,42 +91,6 @@ _HTTP_SESSION.headers.update({
 })
 
 
-def fetch_cover_image(cover_url: str) -> Optional[bytes]:
-    """
-    Downloads album artwork, using caching and SNI/IP bypass for restricted ISP networks if needed.
-    """
-    if not cover_url:
-        return None
-
-    cached = _IMAGE_CACHE.get(cover_url)
-    if cached is not None:
-        return cached
-
-    # Attempt 1: Direct fetch via HTTP session
-    try:
-        res = _HTTP_SESSION.get(cover_url, timeout=8)
-        if res.status_code == 200 and res.content:
-            _IMAGE_CACHE.put(cover_url, res.content)
-            return res.content
-    except Exception:
-        pass
-
-    # Attempt 2: Standard retry with fresh headers and TLS verification
-    try:
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-            "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
-        }
-        res = requests.get(cover_url, headers=headers, timeout=10)
-        if res.status_code == 200 and res.content:
-            _IMAGE_CACHE.put(cover_url, res.content)
-            return res.content
-    except Exception:
-        pass
-
-    return None
-
-
 def embed_metadata(
     file_path: str,
     title: str,
@@ -146,7 +110,16 @@ def embed_metadata(
     """
     img_data = None
     if cover_url and embed_artwork:
-        img_data = fetch_cover_image(cover_url)
+        img_data = _IMAGE_CACHE.get(cover_url)
+
+        if img_data is None:
+            try:
+                res = _HTTP_SESSION.get(cover_url, timeout=12)
+                if res.status_code == 200:
+                    img_data = res.content
+                    _IMAGE_CACHE.put(cover_url, img_data)
+            except Exception:
+                pass
 
     ext = os.path.splitext(file_path)[1].lower()
 
@@ -212,104 +185,6 @@ def embed_metadata(
             audio.clear_pictures()
             audio.add_picture(picture)
         audio.save()
-
-
-def _parse_youtube_url_string(c: str) -> Optional[str]:
-    """Helper to cleanly parse a YouTube URL or URI string into a canonical watch URL."""
-    if not c or not isinstance(c, str):
-        return None
-    c = c.strip()
-    if not c:
-        return None
-
-    if c.lower().startswith("youtube:"):
-        m = re.match(r"^youtube:(?:track:)?([a-zA-Z0-9_-]{11})$", c, re.IGNORECASE)
-        if m:
-            return f"https://www.youtube.com/watch?v={m.group(1)}"
-        return None
-
-    try:
-        parsed = urllib.parse.urlparse(c)
-        host = (parsed.netloc or "").lower()
-        path = parsed.path or ""
-
-        # youtu.be shortlinks: https://youtu.be/VIDEO_ID?params
-        if host in ("youtu.be", "www.youtu.be"):
-            vid = path.strip("/").split("/")[0]
-            if re.match(r"^[a-zA-Z0-9_-]{11}$", vid):
-                return f"https://www.youtube.com/watch?v={vid}"
-
-        # youtube.com, music.youtube.com, m.youtube.com, etc.
-        if any(h in host for h in ("youtube.com", "youtube-nocookie.com")):
-            # If it's purely a playlist URL without a specific video, don't treat it as a direct track stream
-            if path == "/playlist" or ("list=" in parsed.query and "v=" not in parsed.query):
-                return None
-
-            # Standard watch URL: /watch?v=VIDEO_ID
-            qs = urllib.parse.parse_qs(parsed.query)
-            if "v" in qs and qs["v"]:
-                vid = qs["v"][0]
-                if re.match(r"^[a-zA-Z0-9_-]{11}$", vid):
-                    return f"https://www.youtube.com/watch?v={vid}"
-
-            # /shorts/VIDEO_ID, /live/VIDEO_ID, /embed/VIDEO_ID, /v/VIDEO_ID
-            m = re.match(r"^/(?:shorts|live|embed|v)/([a-zA-Z0-9_-]{11})", path, re.IGNORECASE)
-            if m:
-                return f"https://www.youtube.com/watch?v={m.group(1)}"
-
-            # If it has /watch in path and any v parameter
-            if "/watch" in path and "v" in qs and qs["v"]:
-                return f"https://www.youtube.com/watch?v={qs['v'][0]}"
-    except Exception:
-        pass
-
-    return None
-
-
-def extract_youtube_url(track: Dict[str, Any]) -> Optional[str]:
-    """
-    Extracts and normalizes a direct YouTube or YouTube Music URL from a track dictionary.
-    Inspects direct_url, url, webpage_url, link, spotify_url, uri, and id.
-    Returns a clean, canonical YouTube video URL (https://www.youtube.com/watch?v=VIDEO_ID)
-    or None if no YouTube URL is associated.
-    """
-    if not isinstance(track, dict):
-        return None
-
-    # Check URI (e.g., youtube:track:VIDEO_ID or youtube:VIDEO_ID)
-    uri = str(track.get("uri") or "").strip()
-    if uri:
-        res = _parse_youtube_url_string(uri)
-        if res:
-            return res
-
-    # Check candidates
-    candidates = [
-        track.get("direct_url"),
-        track.get("url"),
-        track.get("webpage_url"),
-        track.get("link"),
-        track.get("spotify_url"),
-    ]
-
-    for cand in candidates:
-        if cand:
-            res = _parse_youtube_url_string(str(cand))
-            if res:
-                return res
-
-    # Check ID if source indicates YouTube or if t_id is a YouTube URL/URI
-    source = str(track.get("source") or "").lower()
-    t_id = str(track.get("id") or "").strip()
-    if t_id:
-        if "youtube.com" in t_id or "youtu.be" in t_id or t_id.lower().startswith("youtube:"):
-            res = _parse_youtube_url_string(t_id)
-            if res:
-                return res
-        if source in ("youtube", "youtube_music") and re.match(r"^[a-zA-Z0-9_-]{11}$", t_id):
-            return f"https://www.youtube.com/watch?v={t_id}"
-
-    return None
 
 
 class DownloadManager:
@@ -520,36 +395,19 @@ class DownloadManager:
                 broadcast_progress_snapshot()
                 return
 
-            # Check if track has a direct YouTube URL
-            direct_yt_url = extract_youtube_url(track)
-
-            # Notify: Status
-            if direct_yt_url:
-                with self._lock:
-                    self.active_job["tracks"][track_id] = {
-                        "status": "downloading",
-                        "progress": 15,
-                        "message": "Connecting to direct YouTube stream...",
-                        "title": track_title,
-                    }
-                loop.call_soon_threadsafe(
-                    self.broadcast_event,
-                    "track_update",
-                    {"track_id": track_id, "status": "downloading", "progress": 15, "message": "Connecting to direct YouTube stream..."},
-                )
-            else:
-                with self._lock:
-                    self.active_job["tracks"][track_id] = {
-                        "status": "searching",
-                        "progress": 10,
-                        "message": "Finding best audio stream...",
-                        "title": track_title,
-                    }
-                loop.call_soon_threadsafe(
-                    self.broadcast_event,
-                    "track_update",
-                    {"track_id": track_id, "status": "searching", "progress": 10, "message": "Finding best audio stream..."},
-                )
+            # Notify: Searching
+            with self._lock:
+                self.active_job["tracks"][track_id] = {
+                    "status": "searching",
+                    "progress": 10,
+                    "message": "Finding best audio stream...",
+                    "title": track_title,
+                }
+            loop.call_soon_threadsafe(
+                self.broadcast_event,
+                "track_update",
+                {"track_id": track_id, "status": "searching", "progress": 10, "message": "Finding best audio stream..."},
+            )
             broadcast_progress_snapshot()
 
             try:
@@ -592,7 +450,6 @@ class DownloadManager:
                     "format": "bestaudio/best",
                     "outtmpl": temp_tmpl,
                     "noplaylist": True,
-                    "nocheckcertificate": True,
                     "progress_hooks": [ydl_progress_hook],
                     "ffmpeg_location": ffmpeg_dir,
                     "concurrent_fragment_downloads": 4,
@@ -612,59 +469,35 @@ class DownloadManager:
                 }
 
                 temp_converted = os.path.join(output_dir, f"temp_{track_id}.{audio_format}")
-                if os.path.exists(temp_converted):
-                    try:
-                        os.remove(temp_converted)
-                    except Exception:
-                        pass
+
+                # Multi-Strategy Search & Fallback Pipeline (Direct URL + YouTube + SoundCloud)
+                search_queries = []
+                direct_url = track.get("direct_url")
+                if direct_url:
+                    parsed = urlparse(direct_url.strip())
+                    host = (parsed.hostname or "").lower()
+                    if (
+                        host in {"youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be"}
+                        or host.endswith(".youtube.com")
+                    ):
+                        search_queries.append(direct_url)
+                search_queries.extend([
+                    f"ytsearch1:{track_artists} - {track_title} official audio",
+                    f"scsearch1:{track_artists} - {track_title}",
+                    f"ytsearch1:{track_artists} - {track_title}",
+                    f"scsearch1:{track_title}",
+                ])
 
                 download_success = False
-
-                if direct_yt_url:
-                    # Direct YouTube URL: Download directly without any duplicate search!
+                for q in search_queries:
                     try:
                         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                            ydl.download([direct_yt_url])
+                            ydl.download([q])
                         if os.path.exists(temp_converted):
                             download_success = True
-                    except Exception as yt_err:
-                        print(f"[Direct YouTube Download Warning] Failed for '{direct_yt_url}': {yt_err}")
-
-                if not download_success:
-                    if self.is_cancelled():
-                        return
-
-                    if direct_yt_url:
-                        with self._lock:
-                            if self.active_job and track_id in self.active_job.get("tracks", {}):
-                                self.active_job["tracks"][track_id]["status"] = "searching"
-                                self.active_job["tracks"][track_id]["message"] = "Direct stream unavailable, searching audio alternatives..."
-                        loop.call_soon_threadsafe(
-                            self.broadcast_event,
-                            "track_update",
-                            {"track_id": track_id, "status": "searching", "progress": 20, "message": "Direct stream unavailable, searching audio alternatives..."},
-                        )
-                        broadcast_progress_snapshot()
-
-                    # Multi-Strategy Search & Fallback Pipeline (YouTube + SoundCloud)
-                    search_queries = [
-                        f"ytsearch1:{track_artists} - {track_title} official audio",
-                        f"scsearch1:{track_artists} - {track_title}",
-                        f"ytsearch1:{track_artists} - {track_title}",
-                        f"scsearch1:{track_title}",
-                    ]
-
-                    for q in search_queries:
-                        if self.is_cancelled():
-                            return
-                        try:
-                            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                                ydl.download([q])
-                            if os.path.exists(temp_converted):
-                                download_success = True
-                                break
-                        except Exception:
-                            continue
+                            break
+                    except Exception:
+                        continue
 
                 if not download_success or not os.path.exists(temp_converted):
                     raise RuntimeError(f"Could not extract audio stream for '{track_title}'.")

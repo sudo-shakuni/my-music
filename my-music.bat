@@ -1,4 +1,8 @@
 @echo off
 title My-Music
 cd /d "%~dp0"
-call run.bat
+if exist ".venv\Scripts\python.exe" (
+    start "" ".venv\Scripts\python.exe" desktop.py
+) else (
+    start "" python desktop.py
+)
