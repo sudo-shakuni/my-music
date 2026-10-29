@@ -1193,7 +1193,7 @@ function renderNextTrackBatch() {
         </div>
       </div>
       <div class="col-album" title="${escapeHtml(track.album || state.currentPlaylist.title)}">${escapeHtml(track.album || state.currentPlaylist.title)}</div>
-      <div class="col-dur">${track.duration_formatted}</div>
+      <div class="col-dur">${track.duration_formatted || track.duration_str || formatDuration(track.duration_ms) || "--:--"}</div>
       <div class="col-actions">
         <button type="button" class="btn-single-dl" data-id="${track.id}" title="Download '${escapeHtml(track.title)}' immediately">
           <i data-lucide="download"></i>

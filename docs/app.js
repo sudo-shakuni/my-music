@@ -1,7 +1,7 @@
 // --- GITHUB PAGES WEB SHOWCASE MODE ---
 const isWebDemo = window.location.hostname.includes("github.io") || window.location.protocol === "file:";
 
-const DEMO_PLAYLIST_DATA = {
+const SPOTIFY_DEMO_DATA = {
   id: "demo_top_hits",
   title: "My-Music Showcase: Global Hits & Classics",
   author: "My-Music Curator",
@@ -9,7 +9,10 @@ const DEMO_PLAYLIST_DATA = {
   cover_url: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=600&q=80",
   total_tracks: 6,
   total_duration_str: "22m 45s",
+  total_duration_formatted: "22m 45s",
   type: "playlist",
+  source: "spotify",
+  platform_badge: "Spotify",
   tracks: [
     {
       id: "demo_1",
@@ -17,9 +20,9 @@ const DEMO_PLAYLIST_DATA = {
       artists: "The Weeknd",
       album: "After Hours",
       duration_ms: 200040,
-      duration_str: "3:20",
+      duration_str: "3:20", duration_formatted: "3:20",
       cover_url: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&w=300&q=80",
-      preview_url: "https://actions.google.com/sounds/v1/science_fiction/scifi_pulse.ogg",
+      preview_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
       spotify_url: "https://open.spotify.com/track/0VjIjW4GlUZAMYd2vXMi3b"
     },
     {
@@ -28,9 +31,9 @@ const DEMO_PLAYLIST_DATA = {
       artists: "The Weeknd, Daft Punk",
       album: "Starboy",
       duration_ms: 230453,
-      duration_str: "3:50",
+      duration_str: "3:50", duration_formatted: "3:50",
       cover_url: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=300&q=80",
-      preview_url: "https://actions.google.com/sounds/v1/science_fiction/deep_hum.ogg",
+      preview_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
       spotify_url: "https://open.spotify.com/track/7MXVkk9YM5IZxh0WSlVIh0"
     },
     {
@@ -39,9 +42,9 @@ const DEMO_PLAYLIST_DATA = {
       artists: "Dua Lipa",
       album: "Future Nostalgia",
       duration_ms: 203808,
-      duration_str: "3:23",
+      duration_str: "3:23", duration_formatted: "3:23",
       cover_url: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=300&q=80",
-      preview_url: "https://actions.google.com/sounds/v1/science_fiction/scifi_laser_blast.ogg",
+      preview_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
       spotify_url: "https://open.spotify.com/track/463CkQjx2Zk1yXoBuierM9"
     },
     {
@@ -50,9 +53,9 @@ const DEMO_PLAYLIST_DATA = {
       artists: "Daft Punk, Pharrell Williams",
       album: "Random Access Memories",
       duration_ms: 248413,
-      duration_str: "4:08",
+      duration_str: "4:08", duration_formatted: "4:08",
       cover_url: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=300&q=80",
-      preview_url: "https://actions.google.com/sounds/v1/science_fiction/scifi_flyby.ogg",
+      preview_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
       spotify_url: "https://open.spotify.com/track/2Foc5Q5nqNiosCNqttzHof"
     },
     {
@@ -61,9 +64,9 @@ const DEMO_PLAYLIST_DATA = {
       artists: "M83",
       album: "Hurry Up, We're Dreaming",
       duration_ms: 243000,
-      duration_str: "4:03",
+      duration_str: "4:03", duration_formatted: "4:03",
       cover_url: "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?auto=format&fit=crop&w=300&q=80",
-      preview_url: "https://actions.google.com/sounds/v1/science_fiction/scifi_alarm.ogg",
+      preview_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3",
       spotify_url: "https://open.spotify.com/track/1eyzqe2QqGZUmfcPZtrIyt"
     },
     {
@@ -72,13 +75,113 @@ const DEMO_PLAYLIST_DATA = {
       artists: "HOME",
       album: "Odyssey",
       duration_ms: 212000,
-      duration_str: "3:32",
+      duration_str: "3:32", duration_formatted: "3:32",
       cover_url: "https://images.unsplash.com/photo-1487180144351-b8472da7d491?auto=format&fit=crop&w=300&q=80",
-      preview_url: "https://actions.google.com/sounds/v1/science_fiction/scifi_synth_chime.ogg",
+      preview_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3",
       spotify_url: "https://open.spotify.com/track/1Tu2T8y3Wc0pY7s71NzgDq"
     }
   ]
 };
+
+const YOUTUBE_DEMO_DATA = {
+  id: "demo_yt_despacito",
+  title: "Despacito (Official Video)",
+  author: "Luis Fonsi ft. Daddy Yankee",
+  description: "Direct YouTube Stream Extraction Demo. Plays preview audio instantly! Download Lossless FLAC with native Windows app.",
+  cover_url: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=600&q=80",
+  total_tracks: 1,
+  total_duration_str: "4m 42s",
+  total_duration_formatted: "4m 42s",
+  type: "track",
+  source: "youtube",
+  platform_badge: "YouTube & YT Music",
+  tracks: [
+    {
+      id: "demo_yt_1",
+      title: "Despacito",
+      artists: "Luis Fonsi, Daddy Yankee",
+      album: "VIDA",
+      duration_ms: 282000,
+      duration_str: "4:42", duration_formatted: "4:42",
+      cover_url: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=300&q=80",
+      preview_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+      spotify_url: "https://www.youtube.com/watch?v=kJQP7kiw5Fk"
+    }
+  ]
+};
+
+const JIOSAAVN_DEMO_DATA = {
+  id: "demo_jio_kesariya",
+  title: "Kesariya (From 'Brahmastra')",
+  author: "Arijit Singh, Pritam, Amitabh Bhattacharya",
+  description: "JioSaavn 320kbps High-Bitrate Master Audio Demo. Full ID3 tagging & cover artwork embedded.",
+  cover_url: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=600&q=80",
+  total_tracks: 1,
+  total_duration_str: "4m 28s",
+  total_duration_formatted: "4m 28s",
+  type: "track",
+  source: "jiosaavn",
+  platform_badge: "JioSaavn",
+  tracks: [
+    {
+      id: "demo_jio_1",
+      title: "Kesariya",
+      artists: "Arijit Singh, Pritam",
+      album: "Brahmastra",
+      duration_ms: 268000,
+      duration_str: "4:28", duration_formatted: "4:28",
+      cover_url: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=300&q=80",
+      preview_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
+      spotify_url: "https://www.jiosaavn.com/song/kesariya/Bw8TeBJeB1A"
+    }
+  ]
+};
+
+const AMAZON_DEMO_DATA = {
+  id: "demo_amz_hits",
+  title: "Amazon Music Originals & Hits",
+  author: "Amazon Music Curated",
+  description: "Amazon Music HD / Ultra HD lossless catalog integration demo.",
+  cover_url: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=600&q=80",
+  total_tracks: 2,
+  total_duration_str: "7m 10s",
+  total_duration_formatted: "7m 10s",
+  type: "playlist",
+  source: "amazon",
+  platform_badge: "Amazon Music",
+  tracks: [
+    {
+      id: "demo_amz_1",
+      title: "Starboy",
+      artists: "The Weeknd",
+      album: "Starboy",
+      duration_ms: 230453,
+      duration_str: "3:50", duration_formatted: "3:50",
+      cover_url: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=300&q=80",
+      preview_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
+      spotify_url: "https://music.amazon.com/albums/B09XYZ123"
+    },
+    {
+      id: "demo_amz_2",
+      title: "Blinding Lights",
+      artists: "The Weeknd",
+      album: "After Hours",
+      duration_ms: 200040,
+      duration_str: "3:20", duration_formatted: "3:20",
+      cover_url: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&w=300&q=80",
+      preview_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+      spotify_url: "https://music.amazon.com/albums/B09XYZ123"
+    }
+  ]
+};
+
+function getDemoDataForUrl(url) {
+  const p = detectPlatform(url || "");
+  if (p === "youtube" || p === "youtube_music") return YOUTUBE_DEMO_DATA;
+  if (p === "jiosaavn") return JIOSAAVN_DEMO_DATA;
+  if (p === "amazon") return AMAZON_DEMO_DATA;
+  return SPOTIFY_DEMO_DATA;
+}
 
 function initWebShowcaseMode() {
   if (!isWebDemo) return;
@@ -89,12 +192,10 @@ function initWebShowcaseMode() {
     elements.ffmpegStatusText.textContent = "Web Showcase Demo";
   }
 
-  // Auto-render sample showcase playlist so the web page is visually alive immediately
-  setTimeout(() => {
-    state.currentPlaylist = DEMO_PLAYLIST_DATA;
-    renderPlaylistView(DEMO_PLAYLIST_DATA);
-    showToast("🎉 Welcome to the My-Music Web Showcase! Try searching, selecting, and playing previews.", "success", 6000);
-  }, 300);
+  // Render showcase tracks IMMEDIATELY so the user sees songs on first visit
+  state.currentPlaylist = SPOTIFY_DEMO_DATA;
+  renderPlaylistView(SPOTIFY_DEMO_DATA);
+  showToast("🎉 Welcome to My-Music Web Showcase! Click Play on any track to listen to audio previews.", "success", 6000);
 }
 
 /**
@@ -439,6 +540,11 @@ function showToast(message, type = "success", duration = 3500) {
 
 // Load System & FFmpeg Info
 async function loadSystemInfo() {
+  if (isWebDemo) {
+    state.defaultOutputDir = "C:\\Music\\My-Music";
+    if (elements.settingOutdir) elements.settingOutdir.value = state.defaultOutputDir;
+    return;
+  }
   try {
     const res = await fetch("/api/system/info");
     const data = await res.json();
@@ -1122,13 +1228,14 @@ function setLoadingState(isLoading) {
 async function fetchPlaylistData(url) {
   setLoadingState(true);
   if (isWebDemo) {
-    showToast("✨ Loading Web Demo Showcase tracks...", "info", 2000);
+    const demoData = getDemoDataForUrl(url);
+    showToast(`✨ Loading ${demoData.platform_badge} preview: ${demoData.title}...`, "info", 1500);
     setTimeout(() => {
-      state.currentPlaylist = DEMO_PLAYLIST_DATA;
-      renderPlaylistView(DEMO_PLAYLIST_DATA);
+      state.currentPlaylist = demoData;
+      renderPlaylistView(demoData);
       setLoadingState(false);
-      showToast('Loaded "' + DEMO_PLAYLIST_DATA.title + '" (Interactive Demo)', "success");
-    }, 400);
+      showToast(`Loaded "${demoData.title}" (${demoData.platform_badge} Demo)`, "success");
+    }, 300);
     return;
   }
   try {
@@ -1303,7 +1410,7 @@ function renderNextTrackBatch() {
         </div>
       </div>
       <div class="col-album" title="${escapeHtml(track.album || state.currentPlaylist.title)}">${escapeHtml(track.album || state.currentPlaylist.title)}</div>
-      <div class="col-dur">${track.duration_formatted}</div>
+      <div class="col-dur">${track.duration_formatted || track.duration_str || formatDuration(track.duration_ms) || "--:--"}</div>
       <div class="col-actions">
         <button type="button" class="btn-single-dl" data-id="${track.id}" title="Download '${escapeHtml(track.title)}' immediately">
           <i data-lucide="download"></i>
@@ -2085,6 +2192,10 @@ function handleSpotifyNavClick() {
 }
 
 function openSpotifyAuthModal() {
+  if (isWebDemo) {
+    showToast("ℹ️ Spotify account login runs with the local desktop app. In this Web Showcase, test all playlist & player features directly!", "info", 5000);
+    return;
+  }
   if (elements.spotifyAuthModal) {
     elements.spotifyAuthModal.classList.remove("hidden");
     if (window.lucide) window.lucide.createIcons();
@@ -2335,6 +2446,7 @@ async function handleSpotifyLogout() {
 }
 
 async function checkSpotifyAuth(forceRefresh = false) {
+  if (isWebDemo) return;
   try {
     const res = await fetch("/api/spotify/auth/status");
     const data = await res.json();

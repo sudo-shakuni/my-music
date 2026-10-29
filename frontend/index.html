@@ -155,7 +155,7 @@
             </div>
             <div class="library-search-box">
               <i data-lucide="search" class="lib-search-icon"></i>
-              <input type="text" id="library-filter-input" placeholder="Filter your playlists..." />
+              <input type="text" id="library-filter-input" aria-label="Filter your playlists" placeholder="Filter your playlists..." />
             </div>
           </div>
 
@@ -309,15 +309,15 @@
 
         <div class="settings-toggles">
           <label class="checkbox-label">
-            <input type="checkbox" id="toggle-m3u8" checked>
+            <input type="checkbox" id="toggle-m3u8" aria-label="Generate smart m3u8 playlist file" checked>
             <span>Create <code>.m3u8</code> playlist file (clones order for media players)</span>
           </label>
           <label class="checkbox-label">
-            <input type="checkbox" id="toggle-artwork" checked>
+            <input type="checkbox" id="toggle-artwork" aria-label="Embed album artwork in audio file" checked>
             <span>Embed full-resolution album artwork into audio files</span>
           </label>
           <label class="checkbox-label">
-            <input type="checkbox" id="toggle-overwrite">
+            <input type="checkbox" id="toggle-overwrite" aria-label="Overwrite already downloaded files">
             <span>Overwrite already downloaded files</span>
           </label>
         </div>
@@ -333,8 +333,8 @@
             <strong>No login required for public playlists:</strong> Simply paste any playlist link into the search bar above. If you want your own isolated API quota for loading your personal private library without public rate limits, provide your Spotify Developer credentials below:
           </p>
           <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: center;">
-            <input type="text" id="setting-spotify-client-id" placeholder="Spotify Client ID" autocomplete="off" style="font-size: 0.85rem;" />
-            <input type="password" id="setting-spotify-client-secret" placeholder="Spotify Client Secret" autocomplete="off" style="font-size: 0.85rem;" />
+            <input type="text" id="setting-spotify-client-id" aria-label="Spotify Client ID" placeholder="Spotify Client ID" autocomplete="off" style="font-size: 0.85rem;" />
+            <input type="password" id="setting-spotify-client-secret" aria-label="Spotify Client Secret" placeholder="Spotify Client Secret" autocomplete="off" style="font-size: 0.85rem;" />
             <button type="button" id="btn-save-spotify-creds" class="btn btn-secondary btn-sm" style="white-space: nowrap;">
               <i data-lucide="check"></i> Save Keys
             </button>
@@ -684,7 +684,7 @@
                 Paste the copied token here:
               </label>
               <div class="manual-token-input-row">
-                <input type="password" id="input-manual-token" placeholder="Paste token here (starts with BQC... or BQA...)" autocomplete="off" />
+                <input type="password" id="input-manual-token" aria-label="Manual Spotify access token" placeholder="Paste token here (starts with BQC... or BQA...)" autocomplete="off" />
                 <button type="button" id="btn-submit-manual-token" class="btn btn-success">
                   Connect
                 </button>
@@ -739,8 +739,8 @@
               </div>
             </div>
             <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 12px;">
-              <input type="text" id="input-custom-client-id" placeholder="Client ID (32 characters)" autocomplete="off" />
-              <input type="password" id="input-custom-client-secret" placeholder="Client Secret (32 characters)" autocomplete="off" />
+              <input type="text" id="input-custom-client-id" aria-label="Custom Spotify Client ID" placeholder="Client ID (32 characters)" autocomplete="off" />
+              <input type="password" id="input-custom-client-secret" aria-label="Custom Spotify Client Secret" placeholder="Client Secret (32 characters)" autocomplete="off" />
               <button type="button" id="btn-custom-client-login" class="btn btn-spotify btn-block">
                 <span>Connect with My Custom App</span>
               </button>
@@ -783,7 +783,7 @@
             <div class="qr-link-info">
               <span class="qr-instructions">Scan with your Phone Camera on the same Wi-Fi:</span>
               <div class="qr-url-row">
-                <input type="text" id="mobile-transfer-url" readonly class="qr-url-input" />
+                <input type="text" id="mobile-transfer-url" aria-label="Mobile transfer direct URL" readonly class="qr-url-input" />
                 <button type="button" id="btn-copy-mobile-url" class="btn btn-secondary btn-sm" title="Copy URL">
                   <i data-lucide="copy"></i> Copy
                 </button>
