@@ -1,5 +1,14 @@
+function formatDuration(ms) {
+  if (!ms || isNaN(ms)) return "--:--";
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
 // --- GITHUB PAGES WEB SHOWCASE MODE ---
-const isWebDemo = window.location.hostname.includes("github.io") || window.location.protocol === "file:";
+// In the docs/ build, this is always the static web showcase
+const isWebDemo = true;
 
 const SPOTIFY_DEMO_DATA = {
   id: "demo_top_hits",
@@ -176,10 +185,11 @@ const AMAZON_DEMO_DATA = {
 };
 
 function getDemoDataForUrl(url) {
-  const p = detectPlatform(url || "");
-  if (p === "youtube" || p === "youtube_music") return YOUTUBE_DEMO_DATA;
-  if (p === "jiosaavn") return JIOSAAVN_DEMO_DATA;
-  if (p === "amazon") return AMAZON_DEMO_DATA;
+  const p = getPlatformInfo(url || "");
+  const pId = p ? p.id : "spotify";
+  if (pId === "youtube" || pId === "youtube_music") return YOUTUBE_DEMO_DATA;
+  if (pId === "jiosaavn") return JIOSAAVN_DEMO_DATA;
+  if (pId === "amazon") return AMAZON_DEMO_DATA;
   return SPOTIFY_DEMO_DATA;
 }
 
@@ -482,7 +492,7 @@ const elements = {
 };
 
 // Initialize Application
-document.addEventListener("DOMContentLoaded", () => {
+function bootApplication() {
   if (window.lucide) {
     window.lucide.createIcons();
   }
@@ -524,7 +534,13 @@ document.addEventListener("DOMContentLoaded", () => {
   loadRecentPlaylists();
   setupClipboardAutoDetect();
   checkSpotifyAuth();
-});
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", bootApplication);
+} else {
+  bootApplication();
+}
 
 // Toast Notification Helper
 function showToast(message, type = "success", duration = 3500) {
@@ -1355,18 +1371,56 @@ function setLoadingState(isLoading) {
 // Fetch Metadata & Track List from Backend
 async function fetchPlaylistData(url) {
   setLoadingState(true);
-  if (isWebDemo) {
-    const demoData = getDemoDataForUrl(url);
-    showToast(`✨ Loading ${demoData.platform_badge} preview: ${demoData.title}...`, "info", 1500);
-    setTimeout(() => {
-      state.currentPlaylist = demoData;
-      renderPlaylistView(demoData);
-      setLoadingState(false);
-      showToast(`Loaded "${demoData.title}" (${demoData.platform_badge} Demo)`, "success");
-    }, 300);
-    return;
-  }
   try {
+    if (isWebDemo) {
+      // 1. Check if local desktop app backend is active on localhost:8800
+      let loadedFromLocal = false;
+      try {
+        const localCheck = await fetch("http://127.0.0.1:8800/api/system/info", { signal: AbortSignal.timeout(600) });
+        if (localCheck.ok) {
+          const res = await fetch("http://127.0.0.1:8800/api/playlist/info", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              url: url,
+              client_id: localStorage.getItem("my_music_spotify_client_id") || undefined,
+              client_secret: localStorage.getItem("my_music_spotify_client_secret") || undefined,
+            }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            state.currentPlaylist = data;
+            saveRecentPlaylist(data, url);
+            renderPlaylistView(data);
+            showToast(`Loaded "${data.title}" (${data.total_tracks} tracks via Desktop Engine)`, "success");
+            loadedFromLocal = true;
+            return data;
+          }
+        }
+      } catch (e) {
+        // Local engine not running on localhost, fallback to web showcase preview
+      }
+
+      // 2. Web Showcase Demo Mode
+      if (!loadedFromLocal) {
+        const baseDemo = getDemoDataForUrl(url);
+        const demoData = JSON.parse(JSON.stringify(baseDemo));
+        
+        // Extract playlist ID or track title if available in URL
+        const spotifyMatch = (url || "").match(/playlist\/([a-zA-Z0-9]+)/);
+        if (spotifyMatch) {
+          demoData.title = `Spotify Playlist (${spotifyMatch[1].slice(0, 10)}...)`;
+          demoData.description = "Interactive Web Preview! Click Play on any track to preview audio, or run the native My-Music Windows app for full 320k/FLAC downloading.";
+        }
+
+        state.currentPlaylist = demoData;
+        saveRecentPlaylist(demoData, url);
+        renderPlaylistView(demoData);
+        showToast(`Loaded "${demoData.title}" (${demoData.platform_badge} Web Preview)`, "success", 4000);
+        return demoData;
+      }
+    }
+
     const res = await fetch("/api/playlist/info", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

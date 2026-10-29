@@ -1,3 +1,11 @@
+function formatDuration(ms) {
+  if (!ms || isNaN(ms)) return "--:--";
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
 /**
  * My-Music — Music & Playlist Downloader - Modern Frontend Controller
  * Features:
@@ -282,7 +290,7 @@ const elements = {
 };
 
 // Initialize Application
-document.addEventListener("DOMContentLoaded", () => {
+function bootApplication() {
   if (window.lucide) {
     window.lucide.createIcons();
   }
@@ -323,7 +331,13 @@ document.addEventListener("DOMContentLoaded", () => {
   loadRecentPlaylists();
   setupClipboardAutoDetect();
   checkSpotifyAuth();
-});
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", bootApplication);
+} else {
+  bootApplication();
+}
 
 // Toast Notification Helper
 function showToast(message, type = "success", duration = 3500) {
