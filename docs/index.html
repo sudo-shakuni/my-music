@@ -67,6 +67,9 @@
         <button id="btn-mobile-transfer" class="btn-icon" title="Transfer to Mobile via QR" aria-label="Transfer to Mobile">
           <i data-lucide="smartphone"></i>
         </button>
+        <button id="btn-shortcuts-toggle" class="btn-icon" title="Keyboard Shortcuts (?)" aria-label="Keyboard Shortcuts">
+          <i data-lucide="keyboard"></i>
+        </button>
         <button id="btn-settings-toggle" class="btn-icon" title="Preferences" aria-label="Preferences">
           <i data-lucide="settings"></i>
         </button>
@@ -480,9 +483,15 @@
               <input type="checkbox" id="check-all" checked title="Toggle all" aria-label="Select or deselect all tracks" />
             </div>
             <div class="col-num">#</div>
-            <div class="col-title">Title & Artist</div>
-            <div class="col-album">Album</div>
-            <div class="col-dur"><i data-lucide="clock"></i></div>
+            <div class="col-title sortable" id="th-sort-title" title="Click to sort by Title">
+              Title & Artist <i data-lucide="arrow-up-down" class="sort-icon"></i>
+            </div>
+            <div class="col-album sortable" id="th-sort-album" title="Click to sort by Album">
+              Album <i data-lucide="arrow-up-down" class="sort-icon"></i>
+            </div>
+            <div class="col-dur sortable" id="th-sort-dur" title="Click to sort by Duration">
+              <i data-lucide="clock"></i> <i data-lucide="arrow-up-down" class="sort-icon"></i>
+            </div>
             <div class="col-actions">Get</div>
             <div class="col-status">Status</div>
           </div>
@@ -820,6 +829,45 @@
               <i data-lucide="mic-2"></i>
               <span>Stream downloaded tracks with synced lyrics on mobile</span>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Keyboard Shortcuts Modal -->
+    <div id="shortcuts-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="shortcuts-modal-title">
+      <div class="modal-card shortcuts-modal-card card">
+        <div class="modal-header">
+          <div class="auth-modal-title-row">
+            <i data-lucide="keyboard" style="width: 22px; height: 22px; color: var(--gold-imperial);"></i>
+            <h2 id="shortcuts-modal-title" class="modal-title" style="font-size: 1.15rem;">Keyboard Shortcuts</h2>
+          </div>
+          <button type="button" id="btn-close-shortcuts-modal" class="btn-icon" title="Close" aria-label="Close modal"><i data-lucide="x"></i></button>
+        </div>
+        <div class="shortcuts-list">
+          <div class="shortcut-row">
+            <span class="shortcut-desc">Focus URL search / song filter</span>
+            <div class="shortcut-keys"><kbd>/</kbd></div>
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-desc">Play / Pause active preview</span>
+            <div class="shortcut-keys"><kbd>Space</kbd></div>
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-desc">Select / Deselect all tracks</span>
+            <div class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>A</kbd></div>
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-desc">Toggle Mute</span>
+            <div class="shortcut-keys"><kbd>M</kbd></div>
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-desc">Dismiss open modal / queue</span>
+            <div class="shortcut-keys"><kbd>Esc</kbd></div>
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-desc">Toggle keyboard shortcuts legend</span>
+            <div class="shortcut-keys"><kbd>?</kbd></div>
           </div>
         </div>
       </div>

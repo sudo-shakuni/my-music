@@ -356,6 +356,12 @@ const elements = {
 
   // Settings
   btnSettingsToggle: document.getElementById("btn-settings-toggle"),
+  btnShortcutsToggle: document.getElementById("btn-shortcuts-toggle"),
+  shortcutsModal: document.getElementById("shortcuts-modal"),
+  btnCloseShortcutsModal: document.getElementById("btn-close-shortcuts-modal"),
+  thSortTitle: document.getElementById("th-sort-title"),
+  thSortAlbum: document.getElementById("th-sort-album"),
+  thSortDur: document.getElementById("th-sort-dur"),
   settingsPanel: document.getElementById("settings-panel"),
   btnCloseSettings: document.getElementById("btn-close-settings"),
   settingOutdir: document.getElementById("setting-outdir"),
@@ -485,6 +491,8 @@ document.addEventListener("DOMContentLoaded", () => {
   setupEventListeners();
   setupAudioPlayer();
   setupQualityPills();
+  setupTableSorting();
+  setupShortcutsModal();
 
   // Load saved Spotify Developer Credentials
   const savedSpotifyCid = localStorage.getItem("my_music_spotify_client_id") || "";
@@ -1128,11 +1136,127 @@ function setupQualityPills() {
   });
 }
 
+// Table Column Sorting State
+let sortState = { col: null, dir: "asc" };
+
+function setupTableSorting() {
+  if (elements.thSortTitle) {
+    elements.thSortTitle.addEventListener("click", () => sortTracks("title"));
+  }
+  if (elements.thSortAlbum) {
+    elements.thSortAlbum.addEventListener("click", () => sortTracks("album"));
+  }
+  if (elements.thSortDur) {
+    elements.thSortDur.addEventListener("click", () => sortTracks("dur"));
+  }
+}
+
+function sortTracks(col) {
+  if (!state.currentPlaylist || !state.filteredTracks || state.filteredTracks.length === 0) return;
+
+  if (sortState.col === col) {
+    sortState.dir = sortState.dir === "asc" ? "desc" : "asc";
+  } else {
+    sortState.col = col;
+    sortState.dir = "asc";
+  }
+
+  // Update visual sort headers
+  [
+    { el: elements.thSortTitle, key: "title" },
+    { el: elements.thSortAlbum, key: "album" },
+    { el: elements.thSortDur, key: "dur" }
+  ].forEach(({ el, key }) => {
+    if (!el) return;
+    el.classList.remove("active-asc", "active-desc");
+    const icon = el.querySelector(".sort-icon");
+    if (key === col) {
+      el.classList.add(sortState.dir === "asc" ? "active-asc" : "active-desc");
+      if (icon) {
+        icon.setAttribute("data-lucide", sortState.dir === "asc" ? "arrow-up" : "arrow-down");
+      }
+    } else {
+      if (icon) {
+        icon.setAttribute("data-lucide", "arrow-up-down");
+      }
+    }
+  });
+  if (window.lucide) window.lucide.createIcons();
+
+  state.filteredTracks.sort((a, b) => {
+    let valA = "", valB = "";
+    if (col === "title") {
+      valA = (a.title || "").toLowerCase();
+      valB = (b.title || "").toLowerCase();
+    } else if (col === "album") {
+      valA = (a.album || "").toLowerCase();
+      valB = (b.album || "").toLowerCase();
+    } else if (col === "dur") {
+      valA = a.duration_ms || 0;
+      valB = b.duration_ms || 0;
+      return sortState.dir === "asc" ? valA - valB : valB - valA;
+    }
+    if (valA < valB) return sortState.dir === "asc" ? -1 : 1;
+    if (valA > valB) return sortState.dir === "asc" ? 1 : -1;
+    return 0;
+  });
+
+  state.renderedTrackCount = 0;
+  state.lastCheckedIndex = -1;
+  elements.tracksList.innerHTML = "";
+  renderNextTrackBatch();
+
+  const label = col === "title" ? "Title" : col === "album" ? "Album" : "Duration";
+  const order = sortState.dir === "asc" ? (col === "dur" ? "Shortest first" : "A → Z") : (col === "dur" ? "Longest first" : "Z → A");
+  showToast(`Sorted by ${label} (${order})`, "info", 1800);
+}
+
+// Keyboard Shortcuts Legend Modal
+function setupShortcutsModal() {
+  if (elements.btnShortcutsToggle) {
+    elements.btnShortcutsToggle.addEventListener("click", () => toggleShortcutsModal(true));
+  }
+  if (elements.btnCloseShortcutsModal) {
+    elements.btnCloseShortcutsModal.addEventListener("click", () => toggleShortcutsModal(false));
+  }
+  if (elements.shortcutsModal) {
+    elements.shortcutsModal.addEventListener("click", (e) => {
+      if (e.target === elements.shortcutsModal) toggleShortcutsModal(false);
+    });
+  }
+}
+
+function toggleShortcutsModal(show) {
+  if (!elements.shortcutsModal) return;
+  const isCurrentlyOpen = !elements.shortcutsModal.classList.contains("hidden");
+  const target = show !== undefined ? show : !isCurrentlyOpen;
+  if (target) {
+    elements.shortcutsModal.classList.remove("hidden");
+    if (window.lucide) window.lucide.createIcons();
+  } else {
+    elements.shortcutsModal.classList.add("hidden");
+  }
+}
+
 // Keyboard Shortcuts Setup
 function setupKeyboardShortcuts() {
   window.addEventListener("keydown", (e) => {
     const active = document.activeElement;
     const isTyping = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable);
+
+    // '?' to toggle shortcuts modal
+    if (e.key === "?" && !isTyping) {
+      e.preventDefault();
+      toggleShortcutsModal();
+      return;
+    }
+
+    // 'm' or 'M' to toggle mute
+    if ((e.key === "m" || e.key === "M") && !isTyping) {
+      e.preventDefault();
+      if (elements.mpBtnMute) elements.mpBtnMute.click();
+      return;
+    }
 
     // '/' to focus search / filter
     if (e.key === "/" && !isTyping) {
@@ -1162,6 +1286,10 @@ function setupKeyboardShortcuts() {
 
     // Escape to close modals / queue
     if (e.key === "Escape") {
+      if (elements.shortcutsModal && !elements.shortcutsModal.classList.contains("hidden")) {
+        toggleShortcutsModal(false);
+        return;
+      }
       if (elements.queueDrawer && !elements.queueDrawer.classList.contains("hidden")) {
         elements.queueDrawer.classList.add("hidden");
         return;
