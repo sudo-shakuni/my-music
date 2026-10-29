@@ -4,8 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>My-Music — Studio-Grade Music & Playlist Downloader</title>
-  <link rel="icon" type="image/jpeg" href="/static/logo.jpg">
-  <link rel="stylesheet" href="/static/style.css">
+  <!-- Open Graph / Meta for Social Previews (Reddit, Twitter, Discord) -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="My-Music — Free Lossless Music & Playlist Downloader">
+  <meta property="og:description" content="Download Spotify, YouTube, JioSaavn, and Amazon Music tracks in Lossless FLAC or 320kbps MP3 with full ID3 tags, cover art, and smart .m3u8 playlists. Zero API keys required.">
+  <meta property="og:image" content="https://raw.githubusercontent.com/sudo-shakuni/my-music/main/assets/hero_banner.jpg">
+  <meta property="og:url" content="https://sudo-shakuni.github.io/my-music/">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="My-Music — Studio-Grade Music & Playlist Downloader">
+  <meta name="twitter:description" content="Free open-source desktop music downloader. FLAC / MP3 320k, ID3 tags, and zero API keys.">
+  <meta name="twitter:image" content="https://raw.githubusercontent.com/sudo-shakuni/my-music/main/assets/hero_banner.jpg">
+  <link rel="icon" type="image/jpeg" href="logo.jpg">
+  <link rel="stylesheet" href="style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -13,6 +23,12 @@
   <script src="https://unpkg.com/lucide@0.460.0" defer></script>
 </head>
 <body>
+
+  <!-- Live Demo Banner for GitHub Pages -->
+  <div id="demo-banner" style="background: linear-gradient(90deg, #1db954 0%, #1ed760 100%); color: #000; padding: 10px 20px; font-weight: 600; font-size: 14px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 15px; z-index: 9999; position: relative;">
+    <span>🚀 <strong>My-Music Web UI Preview</strong> — Interactive Web Showcase. To download tracks offline in Lossless FLAC/320kbps, download the native Desktop app!</span>
+    <a href="https://github.com/sudo-shakuni/my-music/releases/latest" target="_blank" style="background: #000; color: #fff; text-decoration: none; padding: 5px 14px; border-radius: 20px; font-size: 13px; font-weight: bold; transition: opacity 0.2s;">Download v1.0.0</a>
+  </div>
   <div class="app-container">
     
     <!-- Top Navigation Bar -->
@@ -817,6 +833,6 @@
 
   </div>
 
-  <script src="/static/app.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
