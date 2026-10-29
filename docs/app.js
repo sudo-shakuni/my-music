@@ -230,12 +230,33 @@ async function resolveYouTubeMetadata(url) {
   return null;
 }
 
-async function resolveSpotifyMetadata(url) {
-  const match = (url || "").match(/open\.spotify\.com\/(?:intl-[a-z]+\/)?(track|playlist|album)\/([a-zA-Z0-9]+)/);
-  if (!match) return null;
+function extractSpotifyEntity(rawUrl) {
+  if (!rawUrl) return null;
+  const str = rawUrl.trim();
+  const uriMatch = str.match(/spotify:(playlist|album|track|artist):([a-zA-Z0-9]+)/i);
+  if (uriMatch) {
+    return { type: uriMatch[1].toLowerCase(), id: uriMatch[2] };
+  }
+  const urlMatch = str.match(/(?:playlist|album|track|artist)[\/:]([a-zA-Z0-9]+)/i);
+  if (urlMatch) {
+    const rawType = str.match(/(playlist|album|track|artist)/i);
+    return {
+      type: rawType ? rawType[1].toLowerCase() : "playlist",
+      id: urlMatch[1]
+    };
+  }
+  if (/^[a-zA-Z0-9]{20,24}$/.test(str)) {
+    return { type: "playlist", id: str };
+  }
+  return null;
+}
 
-  const type = match[1];
-  const id = match[2];
+async function resolveSpotifyMetadata(url) {
+  const entity = extractSpotifyEntity(url);
+  if (!entity) return null;
+
+  const type = entity.type;
+  const id = entity.id;
 
   // Try Spotify CORS oEmbed API for real titles and artwork (quick 1.2s timeout)
   let oembedData = null;
@@ -1632,58 +1653,29 @@ async function fetchPlaylistData(url) {
   setLoadingState(true);
   try {
     if (isWebDemo) {
-      // 1. Check if local desktop app backend is active on localhost:8800
-      let loadedFromLocal = false;
-      try {
-        const localCheck = await fetch("http://127.0.0.1:8800/api/system/info", { signal: AbortSignal.timeout(600) });
-        if (localCheck.ok) {
-          const res = await fetch("http://127.0.0.1:8800/api/playlist/info", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              url: url,
-              client_id: localStorage.getItem("my_music_spotify_client_id") || undefined,
-              client_secret: localStorage.getItem("my_music_spotify_client_secret") || undefined,
-            }),
-          });
-          if (res.ok) {
-            const data = await res.json();
-            state.currentPlaylist = data;
-            saveRecentPlaylist(data, url);
-            renderPlaylistView(data);
-            showToast(`Loaded "${data.title}" (${data.total_tracks} tracks via Desktop Engine)`, "success");
-            loadedFromLocal = true;
-            return data;
-          }
-        }
-      } catch (e) {
-        // Local engine not running on localhost, fallback to web showcase preview
+      // Web Showcase Direct Instant Resolver (Zero Mixed Content delays)
+      let resolved = null;
+      const p = getPlatformInfo(url);
+      const pId = p ? p.id : "spotify";
+
+      if (pId === "youtube" || pId === "youtube_music") {
+        resolved = await resolveYouTubeMetadata(url);
+      } else if (pId === "jiosaavn") {
+        resolved = resolveJioSaavnSlugMetadata(url);
+      } else if (pId === "spotify") {
+        resolved = await resolveSpotifyMetadata(url);
       }
 
-      // 2. Web Showcase Dynamic Resolver Mode
-      if (!loadedFromLocal) {
-        let resolved = null;
-        const p = getPlatformInfo(url);
-        const pId = p ? p.id : "spotify";
-
-        if (pId === "youtube" || pId === "youtube_music") {
-          resolved = await resolveYouTubeMetadata(url);
-        } else if (pId === "jiosaavn") {
-          resolved = resolveJioSaavnSlugMetadata(url);
-        } else if (pId === "spotify") {
-          resolved = await resolveSpotifyMetadata(url);
-        }
-
-        if (!resolved) {
-          resolved = getDemoDataForUrl(url);
-        }
-
-        state.currentPlaylist = resolved;
-        saveRecentPlaylist(resolved, url);
-        renderPlaylistView(resolved);
-        showToast(`Loaded "${resolved.title}" (${resolved.platform_badge})`, "success", 4000);
-        return resolved;
+      if (!resolved) {
+        resolved = getDemoDataForUrl(url);
       }
+
+      setLoadingState(false);
+      state.currentPlaylist = resolved;
+      saveRecentPlaylist(resolved, url);
+      renderPlaylistView(resolved);
+      showToast(`Loaded "${resolved.title}" (${resolved.platform_badge})`, "success", 4000);
+      return resolved;
     }
 
     const res = await fetch("/api/playlist/info", {
@@ -3265,7 +3257,7 @@ function escapeHtml(text) {
 }
 
 function sanitizeFilename(name) {
-  return name.replace(/[<>:"/\\|?*]/g, "_").trim();
+  return String(name || "track").replace(/[<>:"/\\|?*]/g, "_").trim();
 }
 
 // ==========================================
