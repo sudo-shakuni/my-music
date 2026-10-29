@@ -1,5 +1,5 @@
 """
-End-to-end integration test suite for My-Music - Studio-Grade Music Downloader.
+End-to-end integration test suite for Spotify Playlist Cloner & Downloader.
 Tests metadata extraction, server endpoints, and audio download + metadata embedding.
 """
 
@@ -169,80 +169,6 @@ def test_ui_files():
     print("  [PASS] All UI & launcher files present")
 
 
-def test_youtube_direct_download():
-    print("[6/6] Testing YouTube direct download pipeline (zero duplicate search)...")
-    from backend.downloader import extract_youtube_url
-    from backend.universal_meta import resolve_universal_metadata
-
-    # 1. Verify URL extraction & normalization
-    yt_test_cases = [
-        ({"direct_url": "https://www.youtube.com/watch?v=jNQXAC9IVRw"}, "https://www.youtube.com/watch?v=jNQXAC9IVRw"),
-        ({"direct_url": "https://www.youtube.com/watch?v=jNQXAC9IVRw&prev_v=abcdefghijk"}, "https://www.youtube.com/watch?v=jNQXAC9IVRw"),
-        ({"url": "https://youtu.be/jNQXAC9IVRw"}, "https://www.youtube.com/watch?v=jNQXAC9IVRw"),
-        ({"spotify_url": "https://music.youtube.com/watch?v=jNQXAC9IVRw"}, "https://www.youtube.com/watch?v=jNQXAC9IVRw"),
-        ({"direct_url": "https://www.youtube.com/live/jNQXAC9IVRw?feature=share"}, "https://www.youtube.com/watch?v=jNQXAC9IVRw"),
-        ({"uri": "youtube:track:jNQXAC9IVRw"}, "https://www.youtube.com/watch?v=jNQXAC9IVRw"),
-        ({"id": "jNQXAC9IVRw", "source": "youtube"}, "https://www.youtube.com/watch?v=jNQXAC9IVRw"),
-        ({"id": "test_id_123"}, None),
-        ({"direct_url": "https://www.youtube.com/playlist?list=PL12345"}, None),
-    ]
-    for track_dict, expected_url in yt_test_cases:
-        assert extract_youtube_url(track_dict) == expected_url, f"Failed extracting {track_dict}: expected {expected_url}, got {extract_youtube_url(track_dict)}"
-
-    # 2. Verify YouTube metadata resolution
-    meta = resolve_universal_metadata("https://www.youtube.com/watch?v=jNQXAC9IVRw")
-    assert meta["source"] == "youtube"
-    assert len(meta["tracks"]) > 0
-    assert meta["tracks"][0]["direct_url"] == "https://www.youtube.com/watch?v=jNQXAC9IVRw"
-
-    # 3. Verify download executes directly via YouTube URL without search
-    test_dir = os.path.abspath("test_yt_output")
-    os.makedirs(test_dir, exist_ok=True)
-
-    test_track = meta["tracks"][0]
-    import asyncio
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
-    options = {
-        "output_dir": test_dir,
-        "audio_format": "mp3",
-        "bitrate": "128",
-        "filename_format": "{artist} - {title}",
-        "create_m3u8": False,
-        "overwrite": True,
-    }
-
-    import yt_dlp
-    orig_download = yt_dlp.YoutubeDL.download
-    download_calls = []
-    def intercept_download(self, url_list):
-        download_calls.extend(url_list)
-        return orig_download(self, url_list)
-    yt_dlp.YoutubeDL.download = intercept_download
-
-    try:
-        download_manager._run_job_worker(
-            playlist_title="YouTube Direct Test",
-            tracks=[test_track],
-            options=options,
-            loop=loop,
-        )
-    finally:
-        yt_dlp.YoutubeDL.download = orig_download
-
-    assert any("jNQXAC9IVRw" in u for u in download_calls), "Direct YouTube URL was not used!"
-    assert not any(u.startswith("ytsearch") for u in download_calls), "Duplicate search query was executed!"
-
-    expected_file = os.path.join(test_dir, f"{test_track['artists']} - {test_track['title']}.mp3")
-    assert os.path.exists(expected_file), f"Output file missing: {expected_file}"
-    assert os.path.getsize(expected_file) > 10000, "Output file too small"
-
-    import shutil
-    shutil.rmtree(test_dir, ignore_errors=True)
-    print("  [PASS] Direct YouTube URL extracted, passed directly to yt-dlp, and audio file created with 0 duplicate searches!")
-
-
 if __name__ == "__main__":
     print("========================================")
     print(" Running Full Verification Test Suite")
@@ -252,6 +178,5 @@ if __name__ == "__main__":
     test_audio_download_and_id3_tagging()
     test_concurrent_downloads()
     test_ui_files()
-    test_youtube_direct_download()
     print("\n[SUCCESS] ALL TESTS PASSED!")
 

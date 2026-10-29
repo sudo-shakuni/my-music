@@ -21,7 +21,7 @@ def detect_platform(url: str) -> str:
         return "spotify"
     if "music.youtube.com" in url_lower:
         return "youtube_music"
-    if "youtube.com" in url_lower or "youtu.be" in url_lower or url_lower.startswith("youtube:"):
+    if "youtube.com" in url_lower or "youtu.be" in url_lower:
         return "youtube"
     if "jiosaavn.com" in url_lower or "saavn.com" in url_lower:
         return "jiosaavn"
@@ -36,41 +36,15 @@ def resolve_youtube_metadata(url: str) -> Dict[str, Any]:
     """
     import yt_dlp
 
-    target_url = url.strip()
-    if target_url.lower().startswith("youtube:"):
-        m = re.match(r"^youtube:(?:track:)?([a-zA-Z0-9_-]{11})$", target_url, re.IGNORECASE)
-        if m:
-            target_url = f"https://www.youtube.com/watch?v={m.group(1)}"
-
     ydl_opts = {
         "quiet": True,
         "no_warnings": True,
         "skip_download": True,
         "extract_flat": "in_playlist",
-        "nocheckcertificate": True,
     }
 
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(target_url, download=False)
-    except Exception as exc:
-        info = None
-        # If target_url has watch and v= but failed (e.g. unviewable or mix playlist), retry with single video URL
-        if "watch" in target_url and "v=" in target_url:
-            try:
-                parsed = urllib.parse.urlparse(target_url)
-                qs = urllib.parse.parse_qs(parsed.query)
-                vid = qs.get("v", [None])[0]
-                if vid:
-                    clean_watch = f"https://www.youtube.com/watch?v={vid}"
-                    fallback_opts = dict(ydl_opts)
-                    fallback_opts["noplaylist"] = True
-                    with yt_dlp.YoutubeDL(fallback_opts) as ydl:
-                        info = ydl.extract_info(clean_watch, download=False)
-            except Exception:
-                pass
-        if not info:
-            raise exc
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(url, download=False)
 
     if not info:
         raise ValueError("Could not extract metadata from YouTube URL.")
@@ -83,10 +57,7 @@ def resolve_youtube_metadata(url: str) -> Dict[str, Any]:
     tracks: List[Dict[str, Any]] = []
 
     if is_playlist:
-        entries = [
-            e for e in info.get("entries", [])
-            if e and str(e.get("title") or "").strip() not in ("[Deleted video]", "[Private video]")
-        ]
+        entries = [e for e in info.get("entries", []) if e]
         entity_type = "playlist"
         for idx, entry in enumerate(entries, start=1):
             t_id = entry.get("id") or f"yt_{idx}"
@@ -481,9 +452,6 @@ def resolve_universal_metadata(
         data = fetch_spotify_metadata(clean_url, client_id, client_secret)
         data["source"] = "spotify"
         data["platform_badge"] = "Spotify"
-        for t in data.get("tracks", []):
-            if not t.get("source"):
-                t["source"] = "spotify"
         set_cached_metadata(cache_key, data)
         return data
 
@@ -506,9 +474,6 @@ def resolve_universal_metadata(
         data = fetch_spotify_metadata(clean_url, client_id, client_secret)
         data["source"] = "spotify"
         data["platform_badge"] = "Spotify"
-        for t in data.get("tracks", []):
-            if not t.get("source"):
-                t["source"] = "spotify"
         set_cached_metadata(cache_key, data)
         return data
     except Exception:
