@@ -783,7 +783,6 @@ function hideClipboardBanner() {
     elements.clipboardBanner.classList.add("hidden");
   }
 }
-}
 
 // Quick Filter Chips Setup
 function setupFilterChips() {
