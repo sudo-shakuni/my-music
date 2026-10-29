@@ -355,7 +355,13 @@ function showToast(message, type = "success", duration = 3500) {
   setTimeout(() => {
     toast.style.opacity = "0";
     toast.style.transform = "translateX(40px)";
-    setTimeout(() => toast.remove(), 250);
+    setTimeout(() => {
+      if (toast.remove) {
+        toast.remove();
+      } else if (toast.parentNode) {
+        toast.parentNode.removeChild(toast);
+      }
+    }, 250);
   }, duration);
 }
 

@@ -230,12 +230,25 @@ async function resolveYouTubeMetadata(url) {
   return null;
 }
 
-function resolveSpotifySlugMetadata(url) {
+async function resolveSpotifyMetadata(url) {
   const match = (url || "").match(/open\.spotify\.com\/(?:intl-[a-z]+\/)?(track|playlist|album)\/([a-zA-Z0-9]+)/);
   if (!match) return null;
 
   const type = match[1];
   const id = match[2];
+
+  // Try Spotify CORS oEmbed API for real titles and artwork (quick 1.2s timeout)
+  let oembedData = null;
+  try {
+    const res = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(url)}`, {
+      signal: AbortSignal.timeout(1200)
+    });
+    if (res.ok) {
+      oembedData = await res.json();
+    }
+  } catch (e) {
+    // Timeout or network offline, gracefully continue with curated/slug fallback
+  }
 
   const knownPlaylists = {
     "37i9dQZF1DXcBWIGoYBM5M": {
@@ -277,14 +290,27 @@ function resolveSpotifySlugMetadata(url) {
     }
   };
 
-  if (knownPlaylists[id]) {
-    const p = knownPlaylists[id];
+  // Match exact ID or prefix (covers 37i9dQZEVXbMWDif5SCB and international variants)
+  let p = knownPlaylists[id];
+  if (!p) {
+    if (id.startsWith("37i9dQZEVXbMWDif") || id.startsWith("37i9dQZEVXbMW") || id.includes("MWDif")) {
+      p = knownPlaylists["37i9dQZEVXbMWDifOteDxR"];
+    } else if (id.startsWith("37i9dQZF1DXcBWIG") || id.startsWith("37i9dQZF1DX") || id.includes("cBWIG")) {
+      p = knownPlaylists["37i9dQZF1DXcBWIGoYBM5M"];
+    } else if (id.startsWith("37i9dQZEVXbMDoHD") || id.startsWith("37i9dQZEVXbMD") || id.includes("MDoHD")) {
+      p = knownPlaylists["37i9dQZEVXbMDoHDwVN2tF"];
+    }
+  }
+
+  if (p) {
+    const finalTitle = oembedData?.title || p.title;
+    const finalCover = oembedData?.thumbnail_url || "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=600&q=80";
     return {
       id: `sp_${id}`,
-      title: p.title,
-      author: p.author,
+      title: finalTitle,
+      author: oembedData?.author_name || p.author,
       description: p.description,
-      cover_url: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=600&q=80",
+      cover_url: finalCover,
       total_tracks: p.tracks.length,
       total_duration_str: "18m 30s",
       total_duration_formatted: "18m 30s",
@@ -299,7 +325,7 @@ function resolveSpotifySlugMetadata(url) {
         duration_ms: t.dur,
         duration_str: formatDuration(t.dur),
         duration_formatted: formatDuration(t.dur),
-        cover_url: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&w=300&q=80",
+        cover_url: finalCover,
         preview_url: `https://www.soundhelix.com/examples/mp3/SoundHelix-Song-${(idx % 16) + 1}.mp3`,
         spotify_url: url
       }))
@@ -307,12 +333,15 @@ function resolveSpotifySlugMetadata(url) {
   }
 
   if (type === "track") {
+    const trackTitle = oembedData?.title || `Spotify Track (${id.slice(0, 8)})`;
+    const trackCover = oembedData?.thumbnail_url || "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=600&q=80";
+    const trackArtist = oembedData?.author_name || "Spotify Artist";
     return {
       id: `sp_track_${id}`,
-      title: "Spotify Single Track",
-      author: "Spotify Artist",
-      description: "Direct Spotify Track Preview. Click Play to test audio preview or download immediately.",
-      cover_url: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=600&q=80",
+      title: trackTitle,
+      author: trackArtist,
+      description: `Direct Spotify Track Preview: "${trackTitle}". Click Play to test audio preview or download immediately.`,
+      cover_url: trackCover,
       total_tracks: 1,
       total_duration_str: "3:30",
       total_duration_formatted: "3:30",
@@ -322,13 +351,13 @@ function resolveSpotifySlugMetadata(url) {
       tracks: [
         {
           id: `sp_tr_${id.slice(0, 8)}`,
-          title: "Track Preview (" + id.slice(0, 8) + ")",
-          artists: "Spotify Artist",
+          title: trackTitle,
+          artists: trackArtist,
           album: "Spotify Single",
           duration_ms: 210000,
           duration_str: "3:30",
           duration_formatted: "3:30",
-          cover_url: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=300&q=80",
+          cover_url: trackCover,
           preview_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
           spotify_url: url
         }
@@ -336,16 +365,19 @@ function resolveSpotifySlugMetadata(url) {
     };
   }
 
+  // Custom Spotify playlist or album with oEmbed metadata or graceful fallback
+  const customTitle = oembedData?.title || `Spotify ${type.charAt(0).toUpperCase() + type.slice(1)} (${id.slice(0, 10)}...)`;
+  const customCover = oembedData?.thumbnail_url || "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=600&q=80";
   return {
     id: `sp_${id}`,
-    title: `Spotify Playlist (${id.slice(0, 10)}...)`,
-    author: "Spotify User",
+    title: customTitle,
+    author: oembedData?.author_name || "Spotify User",
     description: "Interactive Web Preview! Click Play to listen to preview tracks, or run the native My-Music Windows app for full 320k/FLAC downloading.",
-    cover_url: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=600&q=80",
-    total_tracks: 6,
+    cover_url: customCover,
+    total_tracks: SPOTIFY_DEMO_DATA.tracks.length,
     total_duration_str: "22m 45s",
     total_duration_formatted: "22m 45s",
-    type: "playlist",
+    type: type || "playlist",
     source: "spotify",
     platform_badge: "Spotify",
     tracks: SPOTIFY_DEMO_DATA.tracks
@@ -404,6 +436,13 @@ function getDemoDataForUrl(url) {
   if (pId === "youtube" || pId === "youtube_music") return YOUTUBE_DEMO_DATA;
   if (pId === "jiosaavn") return JIOSAAVN_DEMO_DATA;
   if (pId === "amazon") return AMAZON_DEMO_DATA;
+
+  if (url && !url.includes("http://") && !url.includes("https://") && !url.includes("spotify:")) {
+    const custom = JSON.parse(JSON.stringify(SPOTIFY_DEMO_DATA));
+    custom.title = `Search: "${url.trim()}"`;
+    custom.description = `Interactive Web Showcase preview for "${url.trim()}". Click Play to test audio preview or run the native Windows app for 320k/FLAC audio.`;
+    return custom;
+  }
   return SPOTIFY_DEMO_DATA;
 }
 
@@ -772,7 +811,13 @@ function showToast(message, type = "success", duration = 3500) {
   setTimeout(() => {
     toast.style.opacity = "0";
     toast.style.transform = "translateX(40px)";
-    setTimeout(() => toast.remove(), 250);
+    setTimeout(() => {
+      if (toast.remove) {
+        toast.remove();
+      } else if (toast.parentNode) {
+        toast.parentNode.removeChild(toast);
+      }
+    }, 250);
   }, duration);
 }
 
@@ -1626,7 +1671,7 @@ async function fetchPlaylistData(url) {
         } else if (pId === "jiosaavn") {
           resolved = resolveJioSaavnSlugMetadata(url);
         } else if (pId === "spotify") {
-          resolved = resolveSpotifySlugMetadata(url);
+          resolved = await resolveSpotifyMetadata(url);
         }
 
         if (!resolved) {

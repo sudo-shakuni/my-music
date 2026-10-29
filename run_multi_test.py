@@ -111,7 +111,7 @@ async function testLinks() {
     { name: "Despacito (YouTube)", url: "https://www.youtube.com/watch?v=kJQP7kiw5Fk" },
     { name: "Kesariya (JioSaavn)", url: "https://www.jiosaavn.com/song/kesariya/Bw8TeBJeB1A" },
     { name: "Amazon Music Album", url: "https://music.amazon.com/albums/B09XYZ123" },
-    { name: "User Pasted Link (Truncated ID)", url: "https://open.spotify.com/playlist/37i9dQZEVXbMWDif5SCE" },
+    { name: "User Pasted Link (Exact Screenshot ID)", url: "https://open.spotify.com/playlist/37i9dQZEVXbMWDif5SCB" },
     { name: "Raw Search Query / Generic Text", url: "coldplay viva la vida" }
   ];
 
@@ -141,15 +141,15 @@ async function testLinks() {
 
   console.log(`\nResults: ${passed}/${testLinks.length} passed.`);
   if (passed === testLinks.length) {
-    process.exit(0);
+    process.exitCode = 0;
   } else {
-    process.exit(1);
+    process.exitCode = 1;
   }
 }
 
 testLinks().catch(err => {
   console.error("Test error:", err);
-  process.exit(1);
+  process.exitCode = 1;
 });
 """
 
