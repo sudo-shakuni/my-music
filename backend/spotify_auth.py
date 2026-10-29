@@ -212,6 +212,9 @@ class SpotifyAuthManager:
         self.auth_data: Dict[str, Any] = self._load_session()
         self.pending_states: Dict[str, Dict[str, Any]] = {}
         self.callback_listener = OAuthCallbackListener(self, port=9900)
+        self._library_cache: Dict[str, Tuple[float, Dict[str, Any]]] = {}
+        self._library_cache_lock = threading.Lock()
+        self._library_cache_ttl = 300  # 5 minutes TTL
 
     def _load_session(self) -> Dict[str, Any]:
         if os.path.exists(self.session_file):
@@ -336,7 +339,7 @@ class SpotifyAuthManager:
         else:
             data["client_id"] = client_id
 
-        resp = requests.post(token_url, data=data, headers=headers, verify=False, timeout=15)
+        resp = requests.post(token_url, data=data, headers=headers, timeout=15)
         if resp.status_code != 200:
             raise ValueError(f"Spotify token exchange failed ({resp.status_code}): {resp.text}")
 
@@ -416,7 +419,7 @@ class SpotifyAuthManager:
             headers["Authorization"] = f"Basic {b64_auth}"
         else:
             data["client_id"] = client_id
-        resp = requests.post(token_url, data=data, headers=headers, verify=False, timeout=15)
+        resp = requests.post(token_url, data=data, headers=headers, timeout=15)
         if resp.status_code != 200:
             raise ValueError(f"Failed to refresh token: {resp.text}")
 
@@ -436,7 +439,7 @@ class SpotifyAuthManager:
         url = "https://api.spotify.com/v1/me"
         headers = {"Authorization": f"Bearer {token}"}
         try:
-            resp = requests.get(url, headers=headers, verify=False, timeout=15)
+            resp = requests.get(url, headers=headers, timeout=15)
             if resp.status_code == 200:
                 data = resp.json()
                 avatar = ""
@@ -474,21 +477,37 @@ class SpotifyAuthManager:
     def logout(self) -> None:
         with self._lock:
             self.auth_data = {}
+        with getattr(self, "_library_cache_lock", threading.Lock()):
+            if hasattr(self, "_library_cache"):
+                self._library_cache.clear()
         if os.path.exists(self.session_file):
             try:
                 os.remove(self.session_file)
             except Exception:
                 pass
 
-    def get_user_playlists(self, limit: int = 50, offset: int = 0) -> Dict[str, Any]:
-        """Fetches current user's personal playlists."""
+    def get_user_playlists(self, limit: int = 50, offset: int = 0, force_refresh: bool = False) -> Dict[str, Any]:
+        """Fetches current user's personal playlists with short-lived TTL caching."""
+        user_info = self.get_user_info() or {}
+        user_id = user_info.get("id") or "default_user"
+        cache_key = f"playlists:{user_id}:{limit}:{offset}"
+        now = time.time()
+
+        # Check short-lived cache
+        if not force_refresh:
+            with getattr(self, "_library_cache_lock", threading.Lock()):
+                if hasattr(self, "_library_cache") and cache_key in self._library_cache:
+                    cached_time, cached_val = self._library_cache[cache_key]
+                    if now - cached_time < getattr(self, "_library_cache_ttl", 300):
+                        return cached_val
+
         token = self.get_valid_token()
         if not token:
             raise ValueError("Spotify account is not linked. Please connect your account first.")
 
         url = f"https://api.spotify.com/v1/me/playlists?limit={limit}&offset={offset}"
         headers = {"Authorization": f"Bearer {token}"}
-        resp = requests.get(url, headers=headers, verify=False, timeout=20)
+        resp = requests.get(url, headers=headers, timeout=20)
         if resp.status_code == 429:
             print("[Auth] Spotify API Rate Limit (429 QUOTA_EXCEEDED) reached for shared Client ID.")
             return {
@@ -526,7 +545,7 @@ class SpotifyAuthManager:
                 "spotify_url": p_url,
             })
 
-        return {
+        result_dict = {
             "total": data.get("total", len(items)),
             "limit": limit,
             "offset": offset,
@@ -534,21 +553,36 @@ class SpotifyAuthManager:
             "playlists": items,
             "quota_exceeded": False,
         }
+        with self._library_cache_lock:
+            self._library_cache[cache_key] = (now, result_dict)
+        return result_dict
 
-    def get_liked_songs_metadata(self, limit: int = 50, offset: int = 0) -> Dict[str, Any]:
+    def get_liked_songs_metadata(self, limit: int = 50, offset: int = 0, force_refresh: bool = False) -> Dict[str, Any]:
         """
-        Fetches user's saved tracks (Liked Songs) and formats them
-        as a standard My-Music playlist object for instant preview & 1-click download.
+        Fetches user's saved tracks (Liked Songs) with short-lived TTL caching.
         """
+        user_info = self.get_user_info() or {}
+        user_id = user_info.get("id") or "default_user"
+        cache_key = f"liked:{user_id}:{limit}:{offset}"
+        now = time.time()
+
+        # Check short-lived cache
+        if not force_refresh:
+            with getattr(self, "_library_cache_lock", threading.Lock()):
+                if hasattr(self, "_library_cache") and cache_key in self._library_cache:
+                    cached_time, cached_val = self._library_cache[cache_key]
+                    if now - cached_time < getattr(self, "_library_cache_ttl", 300):
+                        return cached_val
+
         token = self.get_valid_token()
         if not token:
             raise ValueError("Spotify account is not linked. Please connect your account first.")
 
         url = f"https://api.spotify.com/v1/me/tracks?limit={limit}&offset={offset}"
         headers = {"Authorization": f"Bearer {token}"}
-        resp = requests.get(url, headers=headers, verify=False, timeout=20)
+        resp = requests.get(url, headers=headers, timeout=20)
         if resp.status_code == 429:
-            return {
+            result_dict = {
                 "id": "liked_songs",
                 "type": "playlist",
                 "title": "Liked Songs",
@@ -609,7 +643,7 @@ class SpotifyAuthManager:
         user_info = self.get_user_info() or {}
         user_name = user_info.get("display_name", "You")
 
-        return {
+        result_dict = {
             "id": "liked-songs",
             "type": "playlist",
             "title": "Liked Songs",
@@ -623,6 +657,9 @@ class SpotifyAuthManager:
             "total_duration_formatted": tot_dur_fmt,
             "tracks": tracks,
         }
+        with self._library_cache_lock:
+            self._library_cache[cache_key] = (now, result_dict)
+        return result_dict
 
 
 # Global singleton

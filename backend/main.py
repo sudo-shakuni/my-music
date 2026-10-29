@@ -1,5 +1,5 @@
 """
-FastAPI Server for Spotify Playlist Cloner & Downloader.
+FastAPI Server for My-Music - Studio-Grade Music Downloader.
 Exposes REST and SSE endpoints for metadata inspection, download orchestration,
 and local system operations.
 """
@@ -478,17 +478,17 @@ def spotify_logout():
 
 
 @app.get("/api/spotify/me/playlists")
-def get_my_spotify_playlists(limit: int = 50, offset: int = 0):
+def get_my_spotify_playlists(limit: int = 50, offset: int = 0, refresh: bool = False):
     try:
-        return spotify_auth.get_user_playlists(limit=limit, offset=offset)
+        return spotify_auth.get_user_playlists(limit=limit, offset=offset, force_refresh=refresh)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.get("/api/spotify/me/saved-tracks")
-def get_my_saved_tracks(limit: int = 50, offset: int = 0):
+def get_my_saved_tracks(limit: int = 50, offset: int = 0, refresh: bool = False):
     try:
-        return spotify_auth.get_liked_songs_metadata(limit=limit, offset=offset)
+        return spotify_auth.get_liked_songs_metadata(limit=limit, offset=offset, force_refresh=refresh)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 

@@ -171,12 +171,21 @@
         <!-- Auto-Detected Clipboard Banner -->
         <div id="clipboard-banner" class="clipboard-banner card hidden">
           <div class="clipboard-banner-left">
-            <i data-lucide="sparkles" class="clipboard-icon"></i>
+            <span id="clipboard-platform-badge" class="platform-badge platform-badge-sm platform-badge-spotify">🟢 Spotify</span>
             <div class="clipboard-banner-text-col">
-              <span class="clipboard-title">Spotify link detected in clipboard</span>
+              <span class="clipboard-title">Music link detected in clipboard</span>
               <span id="clipboard-url-preview" class="clipboard-url"></span>
             </div>
           </div>
+          <div class="clipboard-banner-actions">
+            <button type="button" id="btn-clipboard-load" class="btn btn-primary btn-sm">
+              <i data-lucide="arrow-down-circle"></i> Load Track / Playlist
+            </button>
+            <button type="button" id="btn-clipboard-dismiss" class="btn-icon btn-sm" title="Dismiss" aria-label="Dismiss notification">
+              <i data-lucide="x"></i>
+            </button>
+          </div>
+        </div>
           <div class="clipboard-banner-actions">
             <button type="button" id="btn-clipboard-load" class="btn btn-primary btn-sm">
               <i data-lucide="arrow-down-circle"></i> Load Playlist
@@ -202,6 +211,7 @@
                 aria-label="Spotify, YouTube, JioSaavn, or Amazon Music link"
                 required
               />
+              <span id="detected-platform-badge" class="detected-platform-badge platform-badge platform-badge-sm hidden"></span>
               <button type="button" id="btn-paste-clipboard" class="btn-input-action" title="Paste Music URL from Clipboard">
                 <i data-lucide="clipboard"></i> Paste
               </button>
@@ -217,10 +227,10 @@
 
           <div class="supported-platforms-bar" style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; align-items: center; font-size: 0.8rem; color: #888;">
             <span style="font-weight: 600;">Supported:</span>
-            <span class="platform-chip" style="background: rgba(29, 185, 84, 0.15); color: #1ed760; border: 1px solid rgba(29, 185, 84, 0.3); padding: 3px 10px; border-radius: 12px; font-weight: 500;">🟢 Spotify</span>
-            <span class="platform-chip" style="background: rgba(255, 0, 0, 0.15); color: #ff5555; border: 1px solid rgba(255, 0, 0, 0.3); padding: 3px 10px; border-radius: 12px; font-weight: 500;">🔴 YouTube & YT Music</span>
-            <span class="platform-chip" style="background: rgba(0, 168, 225, 0.15); color: #00b4f0; border: 1px solid rgba(0, 168, 225, 0.3); padding: 3px 10px; border-radius: 12px; font-weight: 500;">🔵 JioSaavn</span>
-            <span class="platform-chip" style="background: rgba(255, 153, 0, 0.15); color: #ffaa00; border: 1px solid rgba(255, 153, 0, 0.3); padding: 3px 10px; border-radius: 12px; font-weight: 500;">🟠 Amazon Music</span>
+            <span class="platform-badge platform-badge-sm platform-badge-spotify">🟢 Spotify</span>
+            <span class="platform-badge platform-badge-sm platform-badge-youtube">🔴 YouTube & YT Music</span>
+            <span class="platform-badge platform-badge-sm platform-badge-jiosaavn">🔵 JioSaavn</span>
+            <span class="platform-badge platform-badge-sm platform-badge-amazon">🟠 Amazon Music</span>
           </div>
 
           <div class="quick-examples" style="margin-top: 12px;">
@@ -377,7 +387,10 @@
           </div>
           
           <div class="playlist-info">
-            <span id="pl-type" class="pl-type-badge">PLAYLIST</span>
+            <div class="playlist-badges-row">
+              <span id="pl-platform-badge" class="platform-badge platform-badge-sm platform-badge-spotify">🟢 Spotify</span>
+              <span id="pl-type" class="pl-type-badge">PLAYLIST</span>
+            </div>
             <h2 id="pl-title" class="pl-title">Playlist Title</h2>
             <p id="pl-desc" class="pl-desc">Curator description</p>
             

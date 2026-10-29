@@ -1,5 +1,5 @@
 """
-Single Desktop Application for Spotify Playlist Cloner & Downloader.
+Single Desktop Application for My-Music - Studio-Grade Music Downloader.
 Runs the backend in-process, opens a native desktop window,
 and ensures complete process cleanup on exit.
 """

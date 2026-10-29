@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Spotify Playlist Cloner & Downloader - Dark UI Styling
+   My-Music - Studio-Grade Music Downloader - Dark UI Styling
    ========================================================================== */
 
 :root {
@@ -3247,3 +3247,125 @@ textarea:focus-visible {
   background: #1ed760 !important;
 }
 
+
+
+/* ==========================================================================
+   Platform Badges & Indicators (Spotify, YouTube, JioSaavn, Amazon Music)
+   ========================================================================== */
+.platform-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  transition: all 0.2s ease;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.platform-badge-sm {
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.platform-badge-xs {
+  padding: 2px 6px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  border-radius: 4px;
+}
+
+.platform-badge-md {
+  padding: 5px 12px;
+  font-size: 0.82rem;
+}
+
+/* Spotify: Vibrant Green */
+.platform-badge-spotify, .badge-spotify {
+  background: rgba(29, 185, 84, 0.15) !important;
+  color: #1ed760 !important;
+  border: 1px solid rgba(29, 185, 84, 0.45) !important;
+  box-shadow: 0 0 10px rgba(29, 185, 84, 0.2);
+}
+
+/* YouTube & YouTube Music: Vivid Red */
+.platform-badge-youtube, .platform-badge-youtube_music, .badge-youtube, .badge-youtube_music {
+  background: rgba(255, 0, 0, 0.15) !important;
+  color: #ff4d4d !important;
+  border: 1px solid rgba(255, 0, 0, 0.45) !important;
+  box-shadow: 0 0 10px rgba(255, 0, 0, 0.2);
+}
+
+/* JioSaavn: Electric Cyan */
+.platform-badge-jiosaavn, .badge-jiosaavn {
+  background: rgba(0, 176, 185, 0.15) !important;
+  color: #00d2f7 !important;
+  border: 1px solid rgba(0, 176, 185, 0.45) !important;
+  box-shadow: 0 0 10px rgba(0, 176, 185, 0.2);
+}
+
+/* Amazon Music: Warm Amber / Gold */
+.platform-badge-amazon, .badge-amazon {
+  background: rgba(255, 153, 0, 0.15) !important;
+  color: #ffaa00 !important;
+  border: 1px solid rgba(255, 153, 0, 0.45) !important;
+  box-shadow: 0 0 10px rgba(255, 153, 0, 0.2);
+}
+
+/* Default / Generic Platform */
+.platform-badge-generic {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #e0e0e0 !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Clipboard Banner Theme Variants */
+.clipboard-banner.theme-spotify {
+  background: linear-gradient(135deg, rgba(29, 185, 84, 0.18), rgba(24, 24, 24, 0.96));
+  border-color: rgba(29, 185, 84, 0.5);
+  box-shadow: 0 4px 24px rgba(29, 185, 84, 0.25);
+}
+
+.clipboard-banner.theme-youtube {
+  background: linear-gradient(135deg, rgba(255, 0, 0, 0.18), rgba(24, 24, 24, 0.96));
+  border-color: rgba(255, 0, 0, 0.5);
+  box-shadow: 0 4px 24px rgba(255, 0, 0, 0.25);
+}
+
+.clipboard-banner.theme-jiosaavn {
+  background: linear-gradient(135deg, rgba(0, 176, 185, 0.18), rgba(24, 24, 24, 0.96));
+  border-color: rgba(0, 176, 185, 0.5);
+  box-shadow: 0 4px 24px rgba(0, 176, 185, 0.25);
+}
+
+.clipboard-banner.theme-amazon {
+  background: linear-gradient(135deg, rgba(255, 153, 0, 0.18), rgba(24, 24, 24, 0.96));
+  border-color: rgba(255, 153, 0, 0.5);
+  box-shadow: 0 4px 24px rgba(255, 153, 0, 0.25);
+}
+
+/* Input badge inside search bar */
+.detected-platform-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 6px;
+  animation: fadeIn 0.2s ease;
+}
+
+.playlist-badges-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.track-source-pill {
+  margin-left: 6px;
+  vertical-align: middle;
+}
