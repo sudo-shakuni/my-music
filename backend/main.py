@@ -49,7 +49,7 @@ def get_local_lan_ip() -> str:
             return "127.0.0.1"
 
 
-app = FastAPI(title="My-Music API")
+app = FastAPI(title="My-Music API", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -152,6 +152,7 @@ def get_system_info():
     os.makedirs(user_music, exist_ok=True)
 
     return {
+        "version": "2.0.0",
         "os": sys.platform,
         "default_music_dir": user_music,
         "ffmpeg_path": ffmpeg_bin,

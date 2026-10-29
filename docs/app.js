@@ -2661,9 +2661,9 @@ async function resolveSpotifyMetadata(url) {
         title: t.title,
         artists: t.artists,
         album: t.album,
-        duration_ms: t.dur,
-        duration_str: formatDuration(t.dur),
-        duration_formatted: formatDuration(t.dur),
+        duration_ms: t.duration_ms || t.dur || 210000,
+        duration_str: t.duration_str || formatDuration(t.duration_ms || t.dur),
+        duration_formatted: t.duration_formatted || t.duration_str || formatDuration(t.duration_ms || t.dur),
         cover_url: finalCover,
         preview_url: `https://www.soundhelix.com/examples/mp3/SoundHelix-Song-${(idx % 16) + 1}.mp3`,
         spotify_url: url

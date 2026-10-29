@@ -3,7 +3,7 @@
 
 $ErrorActionPreference = "Stop"
 Write-Host "==================================================" -ForegroundColor Green
-Write-Host "🎵 Installing My-Music v1.0.0 for Windows..." -ForegroundColor Green
+Write-Host "🎵 Installing My-Music v2.0.0 for Windows..." -ForegroundColor Green
 Write-Host "==================================================" -ForegroundColor Green
 
 $InstallDir = "$env:LOCALAPPDATA\My-Music"

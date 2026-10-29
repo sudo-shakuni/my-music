@@ -23,8 +23,8 @@
     <img src="https://img.shields.io/badge/🌐_TRY_THE_LIVE_WEB_DEMO-10b981?style=for-the-badge&logo=safari&logoColor=white" height="42" alt="Try Live Web Demo" />
   </a>
   &nbsp;&nbsp;
-  <a href="https://github.com/sudo-shakuni/my-music/releases/latest/download/my-music-v1.0.0-Windows.zip">
-    <img src="https://img.shields.io/badge/⬇️_DOWNLOAD_WINDOWS_PORTABLE-v1.0.0_(ZIP)-eab308?style=for-the-badge&logo=windows&logoColor=black" height="42" alt="Download Windows Release" />
+  <a href="https://github.com/sudo-shakuni/my-music/releases/latest/download/my-music-v2.0.0-Windows.zip">
+    <img src="https://img.shields.io/badge/⬇️_DOWNLOAD_WINDOWS_PORTABLE-v2.0.0_(ZIP)-eab308?style=for-the-badge&logo=windows&logoColor=black" height="42" alt="Download Windows Release" />
   </a>
 </p>
 

@@ -76,7 +76,7 @@ def main():
     app_url = f"http://127.0.0.1:{PORT}"
     try:
         webview.create_window(
-            title="My-Music — Studio-Grade Music Downloader",
+            title="My-Music v2.0.0 — Studio-Grade Music Downloader",
             url=app_url,
             width=1240,
             height=850,
