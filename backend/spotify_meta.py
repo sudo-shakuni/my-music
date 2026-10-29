@@ -10,6 +10,7 @@ import re
 import threading
 import time
 from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import urlparse
 import requests
 
 
@@ -26,11 +27,12 @@ try:
     _orig_spotapi_build_request = spotapi.http.request.TLSClient.build_request
 
     def _get_ip_for_host(host: str) -> Optional[str]:
-        if "open.spotifycdn.com" in host:
+        normalized = host.lower().strip(".")
+        if normalized == "open.spotifycdn.com" or normalized.endswith(".open.spotifycdn.com"):
             return "140.248.138.251"
-        if "open.spotify.com" in host:
+        if normalized == "open.spotify.com" or normalized.endswith(".open.spotify.com"):
             return "151.101.67.42"
-        if "spotify.com" in host or "spotifycdn" in host:
+        if normalized == "spotify.com" or normalized.endswith(".spotify.com"):
             return "35.186.224.24"
         return None
 
@@ -38,9 +40,9 @@ try:
         if isinstance(url, (bytes, memoryview)):
             url = url.decode("utf-8")
         headers = kwargs.setdefault("headers", {})
-        m = re.search(r"https?://([^/]+)", str(url))
-        if m:
-            host = m.group(1).split(":")[0]
+        parsed = urlparse(str(url))
+        host = parsed.hostname or ""
+        if host:
             ip = _get_ip_for_host(host)
             if ip:
                 headers["Host"] = host

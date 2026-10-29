@@ -10,6 +10,7 @@ import re
 import shutil
 import subprocess
 import sys
+from urllib.parse import urlparse
 import concurrent.futures
 import threading
 import time
@@ -472,8 +473,14 @@ class DownloadManager:
                 # Multi-Strategy Search & Fallback Pipeline (Direct URL + YouTube + SoundCloud)
                 search_queries = []
                 direct_url = track.get("direct_url")
-                if direct_url and ("youtube.com" in direct_url or "youtu.be" in direct_url):
-                    search_queries.append(direct_url)
+                if direct_url:
+                    parsed = urlparse(direct_url.strip())
+                    host = (parsed.hostname or "").lower()
+                    if (
+                        host in {"youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be"}
+                        or host.endswith(".youtube.com")
+                    ):
+                        search_queries.append(direct_url)
                 search_queries.extend([
                     f"ytsearch1:{track_artists} - {track_title} official audio",
                     f"scsearch1:{track_artists} - {track_title}",

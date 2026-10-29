@@ -17,15 +17,27 @@ from backend.spotify_meta import fetch_metadata as fetch_spotify_metadata, forma
 def detect_platform(url: str) -> str:
     """Detects music platform from incoming URL or string."""
     url_lower = url.lower().strip()
-    if "spotify.com" in url_lower or "spotify:" in url_lower:
+    if url_lower.startswith("spotify:"):
         return "spotify"
-    if "music.youtube.com" in url_lower:
+
+    parsed = urllib.parse.urlparse(url_lower)
+    host = (parsed.hostname or "").lower()
+    path = parsed.path or ""
+
+    if not host and "://" not in url_lower:
+        parsed = urllib.parse.urlparse(f"https://{url_lower}")
+        host = (parsed.hostname or "").lower()
+        path = parsed.path or ""
+
+    if host == "spotify.com" or host.endswith(".spotify.com"):
+        return "spotify"
+    if host == "music.youtube.com" or host.endswith(".music.youtube.com"):
         return "youtube_music"
-    if "youtube.com" in url_lower or "youtu.be" in url_lower:
+    if host in {"youtube.com", "youtu.be"} or host.endswith(".youtube.com"):
         return "youtube"
-    if "jiosaavn.com" in url_lower or "saavn.com" in url_lower:
+    if host in {"jiosaavn.com", "saavn.com"} or host.endswith(".jiosaavn.com") or host.endswith(".saavn.com"):
         return "jiosaavn"
-    if "music.amazon." in url_lower or "amazon.com/music" in url_lower:
+    if host.startswith("music.amazon.") or (host == "amazon.com" and path.startswith("/music")):
         return "amazon"
     return "unknown"
 
@@ -480,4 +492,3 @@ def resolve_universal_metadata(
         data = resolve_youtube_metadata(clean_url)
         set_cached_metadata(cache_key, data)
         return data
-

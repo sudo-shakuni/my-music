@@ -681,7 +681,25 @@ async function checkClipboardForSpotifyLink() {
     const text = (await navigator.clipboard.readText()).trim();
     if (!text) return;
 
-    const isMusicLink = text.includes("spotify.com") || text.startsWith("spotify:") || text.includes("youtube.com") || text.includes("youtu.be") || text.includes("jiosaavn.com") || text.includes("saavn.com") || text.includes("music.amazon");
+    const normalizedText = text.toLowerCase();
+    let host = "";
+    let path = "";
+    try {
+      const parsed = new URL(text);
+      host = parsed.hostname.toLowerCase();
+      path = parsed.pathname || "";
+    } catch (_) {}
+
+    const matchesDomain = (domain) => host === domain || host.endsWith(`.${domain}`);
+    const isMusicLink =
+      normalizedText.startsWith("spotify:") ||
+      matchesDomain("spotify.com") ||
+      matchesDomain("youtube.com") ||
+      matchesDomain("youtu.be") ||
+      matchesDomain("jiosaavn.com") ||
+      matchesDomain("saavn.com") ||
+      host.startsWith("music.amazon.") ||
+      (host === "amazon.com" && path.startsWith("/music"));
     if (isMusicLink && text !== state.lastClipboardChecked && (!state.currentPlaylist || text !== elements.playlistUrlInput.value.trim())) {
       state.lastClipboardChecked = text;
       elements.clipboardUrlPreview.textContent = text;
